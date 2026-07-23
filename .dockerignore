@@ -1,0 +1,12 @@
+.git
+.github
+node_modules
+vendor
+storage/*.key
+public/build
+public/hot
+.env
+npm-debug.log
+yarn-error.log
+database/database.sqlite
+.DS_Store
