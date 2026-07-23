@@ -1,0 +1,76 @@
+# syntax=docker/dockerfile:1
+
+# =============================================================================
+# Production image for deploying on Render (single Docker web service).
+#
+# Stage 1 (build): PHP + Node — installs dependencies and compiles frontend
+#                  assets. Node is required here because the Wayfinder Vite
+#                  plugin shells out to `php artisan wayfinder:generate`.
+# Stage 2 (app):   Slim FrankenPHP runtime that serves public/ on $PORT.
+# =============================================================================
+
+# ----------------------------------------------------------------------------
+# Stage 1 — build dependencies & assets
+# ----------------------------------------------------------------------------
+FROM dunglas/frankenphp:php8.4 AS build
+
+RUN install-php-extensions zip intl
+
+# Node 22 (needed to run `npm run build`).
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends curl gnupg unzip ca-certificates \
+    && curl -fsSL https://deb.nodesource.com/setup_22.x | bash - \
+    && apt-get install -y --no-install-recommends nodejs \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
+
+WORKDIR /app
+
+COPY . .
+
+# PHP dependencies (Wayfinder ships in "require", so --no-dev keeps it).
+RUN composer install --no-dev --optimize-autoloader --no-interaction --prefer-dist
+
+# A throwaway key + env so artisan can boot during the asset build
+# (Wayfinder generation). This .env is removed before the runtime stage.
+RUN cp .env.example .env && php artisan key:generate --force
+
+# Compile frontend assets (Vite + Wayfinder).
+RUN npm ci && npm run build
+
+# Strip build-only artifacts so they never reach the runtime image.
+RUN rm -rf node_modules .env public/hot
+
+# ----------------------------------------------------------------------------
+# Stage 2 — production runtime
+# ----------------------------------------------------------------------------
+FROM dunglas/frankenphp:php8.4 AS app
+
+# Extensions for MySQL and PostgreSQL, plus common Laravel needs.
+RUN install-php-extensions pdo_mysql pdo_pgsql zip intl gd bcmath opcache
+
+WORKDIR /app
+
+# Copy the fully-built application (vendor + compiled assets, no node_modules).
+COPY --from=build /app /app
+
+# Ensure writable runtime directories exist.
+RUN mkdir -p \
+        storage/framework/cache \
+        storage/framework/sessions \
+        storage/framework/views \
+        storage/logs \
+        bootstrap/cache \
+    && chown -R www-data:www-data storage bootstrap/cache
+
+COPY render/entrypoint.sh /usr/local/bin/render-entrypoint.sh
+RUN chmod +x /usr/local/bin/render-entrypoint.sh
+
+ENV APP_ENV=production \
+    APP_DEBUG=false \
+    LOG_CHANNEL=stderr \
+    PORT=8080
+
+# Render provides $PORT at runtime; the entrypoint binds FrankenPHP to it.
+ENTRYPOINT ["render-entrypoint.sh"]

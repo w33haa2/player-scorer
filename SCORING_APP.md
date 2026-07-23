@@ -67,6 +67,55 @@ dependencies — including platform-specific Node binaries — never leak into t
 
 ---
 
+## Deploy to Render (production)
+
+Production uses a separate, self-contained image — **`Dockerfile.render`** — that compiles the
+frontend assets and serves the app with **FrankenPHP** (a production-grade PHP server) on the
+`$PORT` Render provides. Your local `Dockerfile` / `docker-compose.yml` are untouched.
+
+### 1. Create the web service
+
+- Push the repo to GitHub, then in Render create a **Web Service** from it (or use the included
+  `render.yaml` Blueprint).
+- Runtime: **Docker**, Dockerfile path: **`./Dockerfile.render`**.
+- Health check path: **`/up`**.
+
+### 2. Provide a database
+
+The app targets **MySQL 8**. Render doesn't offer managed MySQL, so use an external managed MySQL
+(PlanetScale, Aiven, Railway, etc.) or run MySQL as a Render private service, and set the
+`DB_*` env vars accordingly. (`pdo_pgsql` is also bundled if you prefer PostgreSQL.)
+
+### 3. Set environment variables
+
+| Variable | Value |
+| --- | --- |
+| `APP_KEY` | Generate locally: `php artisan key:generate --show` |
+| `APP_URL` | e.g. `https://your-app.onrender.com` |
+| `APP_ENV` | `production` |
+| `APP_DEBUG` | `false` |
+| `LOG_CHANNEL` | `stderr` (so logs appear in Render) |
+| `DB_CONNECTION` | `mysql` |
+| `DB_HOST` / `DB_PORT` / `DB_DATABASE` / `DB_USERNAME` / `DB_PASSWORD` | from your database |
+| `SEED_DATABASE` | `true` for the **first** deploy (seeds awards + admins), then set back to `false` |
+
+The container entrypoint automatically caches config/routes/views, runs `php artisan migrate
+--force`, optionally seeds, and starts FrankenPHP.
+
+### Build & test the production image locally
+
+```bash
+docker build -f Dockerfile.render -t dbbl-render .
+docker run --rm -p 8090:8080 \
+    -e APP_KEY="$(php artisan key:generate --show)" \
+    -e DB_CONNECTION=mysql -e DB_HOST=... -e DB_DATABASE=... \
+    -e DB_USERNAME=... -e DB_PASSWORD=... -e PORT=8080 \
+    dbbl-render
+# open http://localhost:8090
+```
+
+---
+
 ## Seeded Accounts
 
 Two tournament admins are seeded (`UserSeeder`):

@@ -1,0 +1,53 @@
+# Render Blueprint — https://render.com/docs/blueprint-spec
+#
+# Deploys the app as a single Docker web service. Provide a MySQL database
+# (external managed MySQL, or a Render private service) and fill in the
+# `sync: false` secrets in the Render dashboard.
+
+services:
+    - type: web
+      name: dbbl-player-scorer
+      runtime: docker
+      dockerfilePath: ./Dockerfile.render
+      dockerContext: .
+      plan: free
+      region: singapore
+      healthCheckPath: /up
+      autoDeploy: true
+      envVars:
+          - key: APP_NAME
+            value: DBBL Player Scorer
+          - key: APP_ENV
+            value: production
+          - key: APP_DEBUG
+            value: "false"
+          # Generate locally with: php artisan key:generate --show
+          - key: APP_KEY
+            sync: false
+          # e.g. https://dbbl-player-scorer.onrender.com
+          - key: APP_URL
+            sync: false
+          - key: LOG_CHANNEL
+            value: stderr
+          - key: DB_CONNECTION
+            value: mysql
+          - key: DB_HOST
+            sync: false
+          - key: DB_PORT
+            value: "3306"
+          - key: DB_DATABASE
+            sync: false
+          - key: DB_USERNAME
+            sync: false
+          - key: DB_PASSWORD
+            sync: false
+          - key: SESSION_DRIVER
+            value: database
+          - key: QUEUE_CONNECTION
+            value: database
+          - key: CACHE_STORE
+            value: database
+          # Set to "true" for the first deploy to seed awards + admin users,
+          # then switch back to "false".
+          - key: SEED_DATABASE
+            value: "false"
