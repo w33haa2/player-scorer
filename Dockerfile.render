@@ -50,6 +50,16 @@ FROM dunglas/frankenphp:php8.4 AS app
 # Extensions for MySQL and PostgreSQL, plus common Laravel needs.
 RUN install-php-extensions pdo_mysql pdo_pgsql zip intl gd bcmath opcache
 
+# Render (and some other platforms) run containers with a reduced capability
+# bounding set. The FrankenPHP binary ships with a file capability
+# (cap_net_bind_service) which makes the kernel refuse to exec it in that
+# environment. We bind to $PORT (>1024), so the capability isn't needed —
+# strip it to allow the binary to start.
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends libcap2-bin \
+    && rm -rf /var/lib/apt/lists/*
+RUN setcap -r "$(command -v frankenphp)" || true
+
 WORKDIR /app
 
 # Copy the fully-built application (vendor + compiled assets, no node_modules).
