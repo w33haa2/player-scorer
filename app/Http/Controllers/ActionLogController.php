@@ -25,8 +25,8 @@ class ActionLogController extends Controller
             ->with('user:id,name')
             ->when($action !== null, fn ($query) => $query->where('changes->action', $action))
             ->when($search !== '', fn ($query) => $query->where(function ($inner) use ($search): void {
-                $inner->where('changes->player_name', 'like', "%{$search}%")
-                    ->orWhereHas('user', fn ($user) => $user->where('name', 'like', "%{$search}%"));
+                $inner->whereLike('changes->player_name', "%{$search}%", caseSensitive: false)
+                    ->orWhereHas('user', fn ($user) => $user->whereLike('name', "%{$search}%", caseSensitive: false));
             }))
             ->latest()
             ->paginate($perPage)

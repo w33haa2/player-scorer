@@ -25,10 +25,20 @@ class PlayerController extends Controller
         $sort = $request->string('sort')->toString();
         $sort = in_array($sort, $allowedSorts, true) ? $sort : 'name';
 
-        $players = Player::query()
+        $query = Player::query()
             ->withCount('scores')
             ->withSum('scores as scores_total', 'score')
-            ->when($search !== '', fn ($query) => $query->where('name', 'like', "%{$search}%"))
+            ->when($search !== '', fn ($builder) => $builder->whereLike('name', "%{$search}%", caseSensitive: false));
+
+        // Rank matches by relevance (exact > starts-with > contains) when searching.
+        if ($search !== '') {
+            $query->orderByRaw(
+                'CASE WHEN LOWER(name) = LOWER(?) THEN 0 WHEN LOWER(name) LIKE LOWER(?) THEN 1 ELSE 2 END',
+                [$search, $search.'%'],
+            );
+        }
+
+        $players = $query
             ->orderBy($sort, $direction)
             ->orderBy('id')
             ->paginate($perPage)

@@ -32,24 +32,28 @@ class ScoreController extends Controller
 
         $query = PlayerScore::query()
             ->with('player:id,name')
-            ->when($search !== '', fn ($q) => $q->whereHas(
-                'player',
-                fn ($player) => $player->where('name', 'like', "%{$search}%"),
-            ))
-            ->when(in_array($scoreFilter, [1, 2, 3], true), fn ($q) => $q->where('score', $scoreFilter))
-            ->when($burstFilter !== '', fn ($q) => $q->where('is_burst', $burstFilter === '1' || $burstFilter === 'true'));
+            ->join('players', 'players.id', '=', 'player_scores.player_id')
+            ->select('player_scores.*')
+            ->when($search !== '', fn ($q) => $q->whereLike('players.name', "%{$search}%", caseSensitive: false))
+            ->when(in_array($scoreFilter, [1, 2, 3], true), fn ($q) => $q->where('player_scores.score', $scoreFilter))
+            ->when($burstFilter !== '', fn ($q) => $q->where('player_scores.is_burst', $burstFilter === '1' || $burstFilter === 'true'));
+
+        // Rank matches by relevance (exact > starts-with > contains) when searching.
+        if ($search !== '') {
+            $query->orderByRaw(
+                'CASE WHEN LOWER(players.name) = LOWER(?) THEN 0 WHEN LOWER(players.name) LIKE LOWER(?) THEN 1 ELSE 2 END',
+                [$search, $search.'%'],
+            );
+        }
 
         if ($sort === 'player_name') {
-            $query->orderBy(
-                Player::select('name')->whereColumn('players.id', 'player_scores.player_id'),
-                $direction,
-            );
+            $query->orderBy('players.name', $direction);
         } else {
-            $query->orderBy($sort, $direction);
+            $query->orderBy("player_scores.{$sort}", $direction);
         }
 
         $scores = $query
-            ->orderBy('id', 'desc')
+            ->orderBy('player_scores.id', 'desc')
             ->paginate($perPage)
             ->withQueryString()
             ->through(fn (PlayerScore $score): array => [

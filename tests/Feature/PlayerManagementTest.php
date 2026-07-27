@@ -3,8 +3,9 @@
 use App\Models\Player;
 use App\Models\PlayerScore;
 use App\Models\User;
+use Illuminate\Foundation\Testing\RefreshDatabase;
 
-uses(\Illuminate\Foundation\Testing\RefreshDatabase::class);
+uses(RefreshDatabase::class);
 
 test('guests cannot view the players page', function () {
     $this->get(route('players.index'))->assertRedirect(route('login'));
@@ -64,6 +65,31 @@ test('players can be searched by name', function () {
         ->where('players.data.0.name', 'Valkyrie')
     );
 });
+
+test('player search ranks results by relevance', function () {
+    $this->actingAs(User::factory()->create());
+    Player::factory()->create(['name' => 'Marvalo']);   // contains
+    Player::factory()->create(['name' => 'Valkyrie']);  // starts with
+    Player::factory()->create(['name' => 'Val']);       // exact
+
+    $this->get(route('players.index', ['search' => 'val']))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->has('players.data', 3)
+            ->where('players.data.0.name', 'Val')
+            ->where('players.data.1.name', 'Valkyrie')
+            ->where('players.data.2.name', 'Marvalo'));
+});
+
+test('player search is case insensitive', function (string $term) {
+    $this->actingAs(User::factory()->create());
+    Player::factory()->create(['name' => 'Valkyrie']);
+
+    $this->get(route('players.index', ['search' => $term]))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page->has('players.data', 1)
+            ->where('players.data.0.name', 'Valkyrie'));
+})->with(['VALKYRIE', 'valkyrie', 'VaLkYrIe', 'KYRIE']);
 
 test('a player can be deleted along with their scores', function () {
     $this->actingAs(User::factory()->create());
