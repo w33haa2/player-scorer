@@ -197,6 +197,7 @@ const FEATURED_BLADERS = new Set([
     'zxy',
     'ferrari_430',
     'tito j',
+    'cookerino',
 ]);
 
 function isFeatured(player: { player_name: string }): boolean {
