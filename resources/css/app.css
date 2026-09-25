@@ -239,6 +239,152 @@
             0 0 18px rgb(34 184 255 / 0.3);
         animation: rainbow-hue 3s linear infinite;
     }
+
+    /*
+      Burning blader name (FlameText.vue), three stacked layers:
+      - __fire: a copy of the name drawn only as upward text-shadows. The
+        `flame-burn` keyframes make them dance, and the component's SVG
+        turbulence filter bends them into flickering tongues.
+      - __letters: the readable name, filled with a glowing fire gradient.
+      - __defs: the (zero-size) SVG holding that filter.
+      Light mode uses deeper embers so the name stays readable on white.
+    */
+    .flame-text {
+        --flame-core: #fde68a;
+        --flame-1: #fbbf24;
+        --flame-2: #f97316;
+        --flame-3: #ea580c;
+        --flame-4: #c2410c;
+        --flame-5: rgb(154 52 18 / 0.6);
+        --flame-letters: linear-gradient(
+            0deg,
+            #f97316,
+            #dc2626 45%,
+            #991b1b 80%,
+            #7f1d1d
+        );
+
+        position: relative;
+        display: inline-block;
+        isolation: isolate;
+        font-weight: 600;
+    }
+
+    .dark .flame-text {
+        --flame-core: #fff4b8;
+        --flame-1: #ffd23f;
+        --flame-2: #ffa114;
+        --flame-3: #ff6a00;
+        --flame-4: #e8360a;
+        --flame-5: rgb(170 30 0 / 0.8);
+        --flame-letters: linear-gradient(
+            0deg,
+            #fff1a8,
+            #ffc93c 25%,
+            #ff7a1a 55%,
+            #e8260c 85%,
+            #c2150a
+        );
+    }
+
+    /* The box reaches above the name so the filter doesn't clip the flames. */
+    .flame-text__fire {
+        position: absolute;
+        inset: -1.3em -0.4em 0;
+        padding: 1.3em 0.4em 0;
+        color: transparent;
+        pointer-events: none;
+        user-select: none;
+        text-shadow:
+            0 0 0.12em var(--flame-core),
+            0 -0.12em 0.2em var(--flame-1),
+            0.05em -0.3em 0.28em var(--flame-2),
+            -0.06em -0.5em 0.36em var(--flame-3),
+            0.04em -0.72em 0.46em var(--flame-4),
+            -0.02em -0.95em 0.58em var(--flame-5);
+        animation: flame-burn 1.2s ease-in-out infinite;
+    }
+
+    .flame-text__letters {
+        position: relative;
+        background: var(--flame-letters) 0 100% / 100% 170%;
+        -webkit-background-clip: text;
+        background-clip: text;
+        color: transparent;
+        -webkit-text-fill-color: transparent;
+        animation: flame-heat 0.9s ease-in-out infinite alternate;
+    }
+
+    .flame-text__defs {
+        position: absolute;
+        width: 0;
+        height: 0;
+        overflow: hidden;
+    }
+}
+
+/* Flames dance: each frame nudges the shadow tongues sideways and up. */
+@keyframes flame-burn {
+    0%,
+    100% {
+        text-shadow:
+            0 0 0.12em var(--flame-core),
+            0 -0.12em 0.2em var(--flame-1),
+            0.05em -0.3em 0.28em var(--flame-2),
+            -0.06em -0.5em 0.36em var(--flame-3),
+            0.04em -0.72em 0.46em var(--flame-4),
+            -0.02em -0.95em 0.58em var(--flame-5);
+    }
+
+    25% {
+        text-shadow:
+            0 0 0.15em var(--flame-core),
+            0.03em -0.16em 0.22em var(--flame-1),
+            -0.05em -0.37em 0.3em var(--flame-2),
+            0.07em -0.6em 0.38em var(--flame-3),
+            -0.05em -0.84em 0.48em var(--flame-4),
+            0.03em -1.08em 0.6em var(--flame-5);
+    }
+
+    50% {
+        text-shadow:
+            0 0 0.1em var(--flame-core),
+            -0.03em -0.1em 0.18em var(--flame-1),
+            0.06em -0.26em 0.26em var(--flame-2),
+            -0.04em -0.45em 0.34em var(--flame-3),
+            0.06em -0.66em 0.44em var(--flame-4),
+            -0.04em -0.86em 0.54em var(--flame-5);
+    }
+
+    75% {
+        text-shadow:
+            0 0 0.14em var(--flame-core),
+            0.02em -0.14em 0.21em var(--flame-1),
+            -0.04em -0.34em 0.29em var(--flame-2),
+            0.05em -0.57em 0.37em var(--flame-3),
+            -0.06em -0.8em 0.47em var(--flame-4),
+            0.05em -1.02em 0.6em var(--flame-5);
+    }
+}
+
+/* The letters glow hotter and cooler as the gradient shifts. */
+@keyframes flame-heat {
+    to {
+        background-position: 0 35%;
+    }
+}
+
+/* High-contrast modes drop backgrounds and shadows: plain text only. */
+@media (forced-colors: active) {
+    .flame-text__fire {
+        display: none;
+    }
+
+    .flame-text__letters {
+        background: none;
+        color: CanvasText;
+        -webkit-text-fill-color: currentColor;
+    }
 }
 
 @keyframes rainbow-slide {
@@ -256,6 +402,12 @@
 @media (prefers-reduced-motion: reduce) {
     .rainbow-outline::before,
     .rainbow-outline::after {
+        animation: none;
+    }
+
+    /* Still flames: the base text-shadow stays, it just doesn't move. */
+    .flame-text__fire,
+    .flame-text__letters {
         animation: none;
     }
 }

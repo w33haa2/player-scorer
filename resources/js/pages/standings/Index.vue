@@ -189,11 +189,18 @@ const skeletonRowCount = computed(
     () => visibleRows.value.length || INITIAL_SKELETON_ROWS,
 );
 
-// These bladers always get a glowing rainbow outline on their leaderboard row.
-const FEATURED_BLADERS = new Set(['xetty', 'jiyo', 'zxy', 'ferrari_430']);
+// These bladers get a glowing rainbow outline on their leaderboard row and a
+// flaming name wherever they appear on this page. Matched case-insensitively.
+const FEATURED_BLADERS = new Set([
+    'xetty',
+    'jiyo',
+    'zxy',
+    'ferrari_430',
+    'tito j',
+]);
 
-function isFeatured(row: LeaderboardRow): boolean {
-    return FEATURED_BLADERS.has(row.player_name.toLowerCase());
+function isFeatured(player: { player_name: string }): boolean {
+    return FEATURED_BLADERS.has(player.player_name.toLowerCase());
 }
 
 function ariaSort(key: SortKey): 'descending' | 'none' {
@@ -366,6 +373,7 @@ function onDialogHide(): void {
                                 <BladerName
                                     :name="leader.player_name"
                                     :team="leader.team"
+                                    :flame="isFeatured(leader)"
                                     class="min-w-0 flex-1 break-words"
                                     :class="index === 0 ? 'font-medium' : ''"
                                 />
@@ -559,6 +567,7 @@ function onDialogHide(): void {
                                         <BladerName
                                             :name="row.player_name"
                                             :team="row.team"
+                                            :flame="isFeatured(row)"
                                         />
                                     </button>
                                 </div>
