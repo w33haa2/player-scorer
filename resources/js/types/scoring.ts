@@ -8,12 +8,30 @@ export type Paginated<T> = {
     to: number | null;
 };
 
+/** A team as shown next to a blader name. */
+export type TeamSummary = {
+    name: string;
+    acronym: string | null;
+    logo_url: string | null;
+};
+
 export type Player = {
     id: number;
-    name: string;
+    /** Real name (optional). */
+    name: string | null;
+    blader_name: string;
+    team: TeamSummary | null;
     date_started: string | null;
     scores_count: number;
     scores_total: number;
+};
+
+/** The one-time DBBL roster seed (Settings > Profile). */
+export type PlayerDataStatus = {
+    teams: number;
+    players: number;
+    seeded_at: string | null;
+    seeded_by: string | null;
 };
 
 export type Score = {
@@ -30,10 +48,12 @@ export type ScoreEntry = {
     is_burst: boolean;
 };
 
+// On standings and the dashboard, `player_name` is the blader name.
 export type AwardWinner = {
     player_id: number;
     player_name: string;
     value: number;
+    team: TeamSummary | null;
 };
 
 export type AwardLeaderboard = {
@@ -47,6 +67,7 @@ export type AwardLeaderboard = {
 export type LeaderboardRow = {
     player_id: number;
     player_name: string;
+    team: TeamSummary | null;
     rank: number;
     battles: number;
     points: number;
@@ -67,6 +88,7 @@ export type PlayerPlacement = {
 export type PlayerProfile = {
     player_id: number;
     player_name: string;
+    team: TeamSummary | null;
     date_started: string | null;
     rank: number | null;
     total_players: number;
@@ -110,5 +132,7 @@ export type AuditLog = {
     id: number;
     user_name: string;
     changes: AuditLogChange;
+    /** The player's current team (dashboard activity only). */
+    team?: TeamSummary | null;
     created_at: string | null;
 };

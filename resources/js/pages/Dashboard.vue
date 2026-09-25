@@ -2,12 +2,14 @@
 import { Deferred, Head, Link, router } from '@inertiajs/vue3';
 import Button from 'primevue/button';
 import { computed, ref, watch } from 'vue';
+import BladerName from '@/components/BladerName.vue';
 import ActivitySkeleton from '@/components/dashboard/ActivitySkeleton.vue';
 import StatsSkeleton from '@/components/dashboard/StatsSkeleton.vue';
 import FinishBadge from '@/components/FinishBadge.vue';
 import PageHeader from '@/components/PageHeader.vue';
+import TeamLogo from '@/components/TeamLogo.vue';
 import TitleRaceSkeleton from '@/components/TitleRaceSkeleton.vue';
-import { describeChange, formatDateTime, timeAgo } from '@/lib/activity';
+import { describeChangeParts, formatDateTime, timeAgo } from '@/lib/activity';
 import { dashboard } from '@/routes';
 import { index as auditLogs } from '@/routes/audit-logs';
 import { index as players } from '@/routes/players';
@@ -46,6 +48,14 @@ watch(
             updatedAt.value = new Date();
         }
     },
+);
+
+// Each activity sentence split around the player, so the name can carry its tag.
+const activity = computed(() =>
+    (props.recentActivity ?? []).map((log) => ({
+        ...log,
+        sentence: describeChangeParts(log.changes),
+    })),
 );
 
 const updatedLabel = computed(() =>
@@ -200,13 +210,15 @@ function refresh(): void {
                                             "
                                             >{{ rank + 1 }}</span
                                         >
-                                        <span
+                                        <TeamLogo :team="leader.team" />
+                                        <BladerName
+                                            :name="leader.player_name"
+                                            :team="leader.team"
                                             class="min-w-0 flex-1 truncate"
                                             :class="
                                                 rank === 0 ? 'font-medium' : ''
                                             "
-                                            >{{ leader.player_name }}</span
-                                        >
+                                        />
                                         <span
                                             class="font-mono text-xs text-muted-foreground"
                                             >{{ leader.value }}
@@ -251,33 +263,47 @@ function refresh(): void {
                                 class="divide-y divide-border rounded-lg border border-border"
                             >
                                 <li
-                                    v-for="log in recentActivity"
+                                    v-for="log in activity"
                                     :key="log.id"
-                                    class="px-4 py-3"
+                                    class="flex gap-3 px-4 py-3"
                                 >
-                                    <p class="text-sm">
-                                        {{ describeChange(log.changes) }}
-                                    </p>
-                                    <div
-                                        class="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground"
-                                    >
-                                        <FinishBadge
-                                            v-if="log.changes.new"
-                                            :score="log.changes.new.score"
-                                            :is-burst="log.changes.new.is_burst"
-                                            :show-points="false"
-                                        />
-                                        <span>{{ log.user_name }}</span>
-                                        <span aria-hidden="true">·</span>
-                                        <time
-                                            :datetime="
-                                                log.created_at ?? undefined
-                                            "
-                                            :title="
-                                                formatDateTime(log.created_at)
-                                            "
-                                            >{{ timeAgo(log.created_at) }}</time
+                                    <TeamLogo :team="log.team" />
+                                    <div class="min-w-0 flex-1">
+                                        <p class="text-sm">
+                                            {{ log.sentence.before
+                                            }}<BladerName
+                                                :name="log.sentence.player"
+                                                :team="log.team"
+                                                class="font-medium"
+                                            />{{ log.sentence.after }}
+                                        </p>
+                                        <div
+                                            class="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground"
                                         >
+                                            <FinishBadge
+                                                v-if="log.changes.new"
+                                                :score="log.changes.new.score"
+                                                :is-burst="
+                                                    log.changes.new.is_burst
+                                                "
+                                                :show-points="false"
+                                            />
+                                            <span>{{ log.user_name }}</span>
+                                            <span aria-hidden="true">·</span>
+                                            <time
+                                                :datetime="
+                                                    log.created_at ?? undefined
+                                                "
+                                                :title="
+                                                    formatDateTime(
+                                                        log.created_at,
+                                                    )
+                                                "
+                                                >{{
+                                                    timeAgo(log.created_at)
+                                                }}</time
+                                            >
+                                        </div>
                                     </div>
                                 </li>
                             </ul>

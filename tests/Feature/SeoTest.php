@@ -24,7 +24,7 @@ test('the landing page is indexable with its own title, description and social t
 });
 
 test('the standings page describes the current leader from live data', function () {
-    $player = Player::factory()->create(['name' => 'Valkyrie']);
+    $player = Player::factory()->create(['blader_name' => 'Valkyrie']);
     PlayerScore::factory()->for($player)->score(3)->count(2)->create();
 
     $this->get(route('standings.index'))
@@ -37,7 +37,7 @@ test('the standings page describes the current leader from live data', function 
 });
 
 test('a shared player link previews that player but stays out of search results', function () {
-    $player = Player::factory()->create(['name' => 'Dranzer']);
+    $player = Player::factory()->create(['blader_name' => 'Dranzer']);
     PlayerScore::factory()->for($player)->score(3)->create();
 
     $this->get(route('standings.index', ['player' => $player->id]))

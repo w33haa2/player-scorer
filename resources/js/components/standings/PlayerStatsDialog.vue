@@ -1,17 +1,20 @@
 <script setup lang="ts">
 import Dialog from 'primevue/dialog';
-import { computed } from 'vue';
+import { computed, useId } from 'vue';
+import BladerName from '@/components/BladerName.vue';
 import FinishBadge from '@/components/FinishBadge.vue';
+import TeamLogo from '@/components/TeamLogo.vue';
 import { Skeleton } from '@/components/ui/skeleton';
 import { formatDateTime, timeAgo } from '@/lib/activity';
 import { finishTypes } from '@/lib/finishTypes';
-import type { PlayerProfile } from '@/types/scoring';
+import type { PlayerProfile, TeamSummary } from '@/types/scoring';
 
 const props = defineProps<{
     /** Loaded profile, or null while it's being fetched. */
     player: PlayerProfile | null;
-    /** Name from the clicked row, shown immediately while loading. */
+    /** Name and team from the clicked row, shown immediately while loading. */
     fallbackName: string | null;
+    fallbackTeam: TeamSummary | null;
     loading: boolean;
     missing: boolean;
 }>();
@@ -19,6 +22,57 @@ const props = defineProps<{
 const visible = defineModel<boolean>('visible', { required: true });
 
 const emit = defineEmits<{ hide: [] }>();
+
+const titleId = useId();
+
+const headerName = computed(
+    () => props.player?.player_name ?? props.fallbackName ?? 'Player',
+);
+
+const headerTeam = computed(() =>
+    props.player ? props.player.team : props.fallbackTeam,
+);
+
+const startedLabel = computed(() => {
+    if (!props.player?.date_started) {
+        return null;
+    }
+
+    return new Date(props.player.date_started).toLocaleDateString(undefined, {
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric',
+    });
+});
+
+const subtitle = computed(() =>
+    [
+        headerTeam.value?.name,
+        startedLabel.value && `Started ${startedLabel.value}`,
+    ]
+        .filter(Boolean)
+        .join(' · '),
+);
+
+const totals = computed(() => {
+    const player = props.player;
+
+    if (!player) {
+        return [];
+    }
+
+    return [
+        {
+            label: 'Rank',
+            value: player.rank !== null ? `#${player.rank}` : '—',
+            suffix: player.rank !== null ? `of ${player.total_players}` : null,
+            highlight: player.rank === 1,
+        },
+        { label: 'Points', value: String(player.points) },
+        { label: 'Battles', value: String(player.battles) },
+        { label: 'Avg / battle', value: player.average.toFixed(2) },
+    ];
+});
 
 const breakdownRows = computed(() => {
     const player = props.player;
@@ -41,18 +95,6 @@ const breakdownRows = computed(() => {
     });
 });
 
-const startedLabel = computed(() => {
-    if (!props.player?.date_started) {
-        return null;
-    }
-
-    return new Date(props.player.date_started).toLocaleDateString(undefined, {
-        year: 'numeric',
-        month: 'short',
-        day: 'numeric',
-    });
-});
-
 function ordinal(position: number): string {
     const suffix = { 1: 'st', 2: 'nd', 3: 'rd' }[position] ?? 'th';
 
@@ -64,12 +106,32 @@ function ordinal(position: number): string {
     <Dialog
         v-model:visible="visible"
         modal
-        :header="player?.player_name ?? fallbackName ?? 'Player'"
-        :style="{ width: '95vw', maxWidth: '34rem' }"
+        :aria-labelledby="titleId"
+        :style="{ width: '95vw', maxWidth: '36rem' }"
         :draggable="false"
         dismissable-mask
         @hide="emit('hide')"
     >
+        <template #header>
+            <div class="flex min-w-0 items-center gap-3">
+                <TeamLogo v-if="headerTeam" :team="headerTeam" size="lg" />
+                <div class="min-w-0">
+                    <h2
+                        :id="titleId"
+                        class="truncate text-lg leading-snug font-semibold"
+                    >
+                        <BladerName :name="headerName" :team="headerTeam" />
+                    </h2>
+                    <p
+                        v-if="subtitle"
+                        class="truncate text-sm text-muted-foreground"
+                    >
+                        {{ subtitle }}
+                    </p>
+                </div>
+            </div>
+        </template>
+
         <!-- Not found -->
         <p
             v-if="missing"
@@ -81,63 +143,54 @@ function ordinal(position: number): string {
         <!-- Loading -->
         <div
             v-else-if="loading || !player"
-            class="flex flex-col gap-6"
+            class="flex flex-col gap-7 pt-1"
             aria-busy="true"
         >
-            <Skeleton class="h-4 w-48" />
-            <div class="grid grid-cols-3 gap-3">
+            <div class="grid grid-cols-2 gap-3 sm:grid-cols-4">
                 <div
-                    v-for="n in 3"
+                    v-for="n in 4"
                     :key="n"
                     class="rounded-lg border border-border px-3 py-3"
                 >
                     <Skeleton class="h-3 w-12" />
-                    <Skeleton class="mt-2 h-6 w-10" />
+                    <Skeleton class="mt-2.5 h-6 w-10" />
                 </div>
             </div>
-            <div class="flex flex-col gap-2.5">
+            <div class="flex flex-col gap-3">
+                <Skeleton class="h-4 w-16" />
                 <Skeleton class="h-2 w-full rounded-full" />
-                <Skeleton v-for="n in 4" :key="n" class="h-4 w-full" />
+                <div class="grid grid-cols-2 gap-x-6 gap-y-2.5">
+                    <Skeleton v-for="n in 4" :key="n" class="h-4 w-full" />
+                </div>
             </div>
-            <div class="flex flex-col gap-2.5">
-                <Skeleton v-for="n in 4" :key="n" class="h-5 w-full" />
+            <div class="flex flex-col gap-3">
+                <Skeleton class="h-4 w-28" />
+                <Skeleton class="h-11 w-full" />
             </div>
         </div>
 
         <!-- Loaded -->
-        <div v-else class="flex flex-col gap-7">
-            <p class="-mt-2 text-sm text-muted-foreground">
-                <template v-if="player.rank !== null"
-                    >Ranked
-                    <span class="font-medium text-foreground"
-                        >#{{ player.rank }}</span
-                    >
-                    of {{ player.total_players }}</template
-                >
-                <template v-else>Not ranked yet</template>
-                <template v-if="startedLabel">
-                    · Started {{ startedLabel }}</template
-                >
-            </p>
-
+        <div v-else class="flex flex-col gap-7 pt-1">
             <!-- Totals -->
-            <dl class="grid grid-cols-3 gap-3">
-                <div class="rounded-lg border border-border px-3 py-3">
-                    <dt class="text-xs text-muted-foreground">Points</dt>
-                    <dd class="mt-1 font-mono text-xl font-medium">
-                        {{ player.points }}
-                    </dd>
-                </div>
-                <div class="rounded-lg border border-border px-3 py-3">
-                    <dt class="text-xs text-muted-foreground">Battles</dt>
-                    <dd class="mt-1 font-mono text-xl font-medium">
-                        {{ player.battles }}
-                    </dd>
-                </div>
-                <div class="rounded-lg border border-border px-3 py-3">
-                    <dt class="text-xs text-muted-foreground">Avg / battle</dt>
-                    <dd class="mt-1 font-mono text-xl font-medium">
-                        {{ player.average.toFixed(2) }}
+            <dl class="grid grid-cols-2 gap-3 sm:grid-cols-4">
+                <div
+                    v-for="stat in totals"
+                    :key="stat.label"
+                    class="rounded-lg border border-border px-3 py-3"
+                >
+                    <dt class="text-xs text-muted-foreground">
+                        {{ stat.label }}
+                    </dt>
+                    <dd
+                        class="mt-1 flex items-baseline gap-1 font-mono text-xl font-medium"
+                        :class="stat.highlight ? 'text-highlight' : ''"
+                    >
+                        {{ stat.value }}
+                        <span
+                            v-if="stat.suffix"
+                            class="text-xs font-normal text-muted-foreground"
+                            >{{ stat.suffix }}</span
+                        >
                     </dd>
                 </div>
             </dl>
@@ -146,7 +199,7 @@ function ordinal(position: number): string {
             <section>
                 <h3 class="mb-3 text-sm font-medium">Finishes</h3>
                 <div
-                    class="flex h-2 overflow-hidden rounded-full bg-muted"
+                    class="flex h-2 overflow-hidden rounded-full bg-secondary"
                     role="img"
                     :aria-label="
                         breakdownRows
@@ -211,7 +264,10 @@ function ordinal(position: number): string {
                         >
                     </li>
                 </ul>
-                <p v-else class="text-sm text-muted-foreground">
+                <p
+                    v-else
+                    class="rounded-lg border border-dashed border-border px-3 py-4 text-center text-sm text-muted-foreground"
+                >
                     Not in the top 3 of any title yet.
                 </p>
             </section>
@@ -240,7 +296,10 @@ function ordinal(position: number): string {
                         >
                     </li>
                 </ul>
-                <p v-else class="text-sm text-muted-foreground">
+                <p
+                    v-else
+                    class="rounded-lg border border-dashed border-border px-3 py-4 text-center text-sm text-muted-foreground"
+                >
                     No battles recorded yet.
                 </p>
             </section>

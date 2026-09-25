@@ -18,6 +18,7 @@ const visible = defineModel<boolean>('visible', { required: true });
 const dateStarted = ref<Date | null>(null);
 
 const form = useForm({
+    blader_name: '',
     name: '',
     date_started: null as string | null,
 });
@@ -41,6 +42,7 @@ watch(visible, (open) => {
     }
 
     form.clearErrors();
+    form.blader_name = props.player?.blader_name ?? '';
     form.name = props.player?.name ?? '';
     dateStarted.value = props.player?.date_started
         ? new Date(props.player.date_started)
@@ -50,6 +52,7 @@ watch(visible, (open) => {
 function submit(): void {
     form.transform((data) => ({
         ...data,
+        name: data.name.trim() === '' ? null : data.name,
         date_started: toDateString(dateStarted.value),
     }));
 
@@ -84,13 +87,40 @@ function submit(): void {
     >
         <form class="flex flex-col gap-5" @submit.prevent="submit">
             <div class="flex flex-col gap-2">
+                <label for="player-blader-name" class="text-sm font-medium"
+                    >Blader name</label
+                >
+                <InputText
+                    id="player-blader-name"
+                    v-model="form.blader_name"
+                    autofocus
+                    fluid
+                    :invalid="!!form.errors.blader_name"
+                />
+                <p class="text-xs text-muted-foreground">
+                    Shown on the standings and scores.
+                </p>
+                <Message
+                    v-if="form.errors.blader_name"
+                    severity="error"
+                    variant="simple"
+                    size="small"
+                >
+                    {{ form.errors.blader_name }}
+                </Message>
+            </div>
+
+            <div class="flex flex-col gap-2">
                 <label for="player-name" class="text-sm font-medium"
-                    >Name</label
+                    >Name
+                    <span class="font-normal text-muted-foreground"
+                        >(optional)</span
+                    ></label
                 >
                 <InputText
                     id="player-name"
                     v-model="form.name"
-                    autofocus
+                    autocomplete="off"
                     fluid
                     :invalid="!!form.errors.name"
                 />

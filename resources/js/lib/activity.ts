@@ -11,20 +11,43 @@ function finishLabel(entry: ScoreEntry | null): string {
     return `${type.label} (+${type.points})`;
 }
 
-/** Plain-language summary of a score change for the activity feed. */
-export function describeChange(change: AuditLogChange): string {
+/** A change summary split around the player's name, so the name can be styled. */
+export function describeChangeParts(change: AuditLogChange): {
+    before: string;
+    player: string;
+    after: string;
+} {
     const player = change.player_name ?? `player #${change.player_id}`;
 
     switch (change.action) {
         case 'created':
-            return `Recorded ${finishLabel(change.new)} for ${player}`;
+            return {
+                before: `Recorded ${finishLabel(change.new)} for `,
+                player,
+                after: '',
+            };
         case 'updated':
-            return `Changed ${player}'s ${finishLabel(change.old)} to ${finishLabel(change.new)}`;
+            return {
+                before: 'Changed ',
+                player,
+                after: `'s ${finishLabel(change.old)} to ${finishLabel(change.new)}`,
+            };
         case 'deleted':
-            return `Removed ${finishLabel(change.old)} from ${player}`;
+            return {
+                before: `Removed ${finishLabel(change.old)} from `,
+                player,
+                after: '',
+            };
         default:
-            return `Updated a score for ${player}`;
+            return { before: 'Updated a score for ', player, after: '' };
     }
+}
+
+/** Plain-language summary of a score change for the activity feed. */
+export function describeChange(change: AuditLogChange): string {
+    const { before, player, after } = describeChangeParts(change);
+
+    return `${before}${player}${after}`;
 }
 
 const relativeFormatter = new Intl.RelativeTimeFormat(undefined, {

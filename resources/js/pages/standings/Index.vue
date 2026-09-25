@@ -2,7 +2,9 @@
 import { Head, router } from '@inertiajs/vue3';
 import Button from 'primevue/button';
 import { computed, ref, watch } from 'vue';
+import BladerName from '@/components/BladerName.vue';
 import PlayerStatsDialog from '@/components/standings/PlayerStatsDialog.vue';
+import TeamLogo from '@/components/TeamLogo.vue';
 import TitleRaceSkeleton from '@/components/TitleRaceSkeleton.vue';
 import { Skeleton } from '@/components/ui/skeleton';
 import { finishTypes } from '@/lib/finishTypes';
@@ -11,6 +13,7 @@ import type {
     AwardLeaderboard,
     LeaderboardRow,
     PlayerProfile,
+    TeamSummary,
 } from '@/types/scoring';
 
 defineOptions({ inheritAttrs: false });
@@ -158,6 +161,9 @@ const requestedId = ref<number | null>(props.selectedPlayer?.player_id ?? null);
 const requestedName = ref<string | null>(
     props.selectedPlayer?.player_name ?? null,
 );
+const requestedTeam = ref<TeamSummary | null>(
+    props.selectedPlayer?.team ?? null,
+);
 // Keeps the last loaded profile so content doesn't vanish during close.
 const displayedPlayer = ref<PlayerProfile | null>(props.selectedPlayer);
 const playerMissing = ref(false);
@@ -184,9 +190,14 @@ const pageTitle = computed(() =>
         : 'Standings & title race',
 );
 
-function openPlayer(player: { player_id: number; player_name: string }): void {
+function openPlayer(player: {
+    player_id: number;
+    player_name: string;
+    team: TeamSummary | null;
+}): void {
     requestedId.value = player.player_id;
     requestedName.value = player.player_name;
+    requestedTeam.value = player.team;
     playerMissing.value = false;
     dialogVisible.value = true;
 
@@ -303,11 +314,13 @@ function onDialogHide(): void {
                                     "
                                     >{{ index + 1 }}</span
                                 >
-                                <span
+                                <TeamLogo :team="leader.team" />
+                                <BladerName
+                                    :name="leader.player_name"
+                                    :team="leader.team"
                                     class="min-w-0 flex-1 truncate"
                                     :class="index === 0 ? 'font-medium' : ''"
-                                    >{{ leader.player_name }}</span
-                                >
+                                />
                                 <span
                                     class="font-mono text-xs text-muted-foreground"
                                     >{{ leader.value }}</span
@@ -401,10 +414,15 @@ function onDialogHide(): void {
                                 <Skeleton class="h-3 w-4" />
                             </td>
                             <td class="max-w-0 px-4">
-                                <Skeleton
-                                    class="h-3.5 w-full"
-                                    :class="n % 2 ? 'max-w-40' : 'max-w-28'"
-                                />
+                                <div class="flex items-center gap-2.5">
+                                    <Skeleton
+                                        class="size-5 shrink-0 rounded-sm"
+                                    />
+                                    <Skeleton
+                                        class="h-3.5 w-full"
+                                        :class="n % 2 ? 'max-w-40' : 'max-w-28'"
+                                    />
+                                </div>
                             </td>
                             <td
                                 v-for="column in columns"
@@ -436,13 +454,19 @@ function onDialogHide(): void {
                                 {{ row.position }}
                             </td>
                             <td class="max-w-0 px-4 py-3">
-                                <button
-                                    type="button"
-                                    class="max-w-full truncate text-left font-medium hover:underline focus-visible:underline focus-visible:outline-none"
-                                    @click.stop="openPlayer(row)"
-                                >
-                                    {{ row.player_name }}
-                                </button>
+                                <div class="flex items-center gap-2.5">
+                                    <TeamLogo :team="row.team" />
+                                    <button
+                                        type="button"
+                                        class="min-w-0 truncate text-left font-medium hover:underline focus-visible:underline focus-visible:outline-none"
+                                        @click.stop="openPlayer(row)"
+                                    >
+                                        <BladerName
+                                            :name="row.player_name"
+                                            :team="row.team"
+                                        />
+                                    </button>
+                                </div>
                             </td>
                             <td
                                 v-for="column in columns"
@@ -481,6 +505,7 @@ function onDialogHide(): void {
         v-model:visible="dialogVisible"
         :player="isLoadingPlayer ? null : displayedPlayer"
         :fallback-name="requestedName"
+        :fallback-team="requestedTeam"
         :loading="isLoadingPlayer"
         :missing="playerMissing"
         @hide="onDialogHide"

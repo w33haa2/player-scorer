@@ -4,9 +4,17 @@ namespace App\Services;
 
 use App\Models\Player;
 use App\Models\PlayerScore;
+use App\Models\TeamMember;
 use Illuminate\Database\Query\Builder;
 use Illuminate\Support\Facades\DB;
 
+/**
+ * Standings are public, so players are identified by their blader name
+ * (`player_name` below) and team, never by their real name.
+ *
+ * @phpstan-type TeamSummary array{name: string, acronym: string|null, logo_url: string|null}
+ * @phpstan-type Leader array{player_id: int, player_name: string, value: int, team: TeamSummary|null}
+ */
 class StandingsService
 {
     /**
@@ -17,7 +25,7 @@ class StandingsService
      *     name: string,
      *     description: string,
      *     metric: string,
-     *     winner: array{player_id: int, player_name: string, value: int}|null
+     *     winner: Leader|null
      * }>
      */
     public function compute(): array
@@ -38,7 +46,7 @@ class StandingsService
      *     name: string,
      *     description: string,
      *     metric: string,
-     *     leaders: list<array{player_id: int, player_name: string, value: int}>
+     *     leaders: list<Leader>
      * }>
      */
     public function leaderboards(int $limit = 3): array
@@ -96,7 +104,7 @@ class StandingsService
      * Uses standard competition ranking, so tied players share a rank
      * (1, 2, 2, 4). Players without any battles are listed last with zeros.
      *
-     * @return list<array{player_id: int, player_name: string, rank: int, battles: int, points: int, spin: int, over: int, burst: int, extreme: int}>
+     * @return list<array{player_id: int, player_name: string, team: TeamSummary|null, rank: int, battles: int, points: int, spin: int, over: int, burst: int, extreme: int}>
      */
     public function playerLeaderboard(): array
     {
@@ -104,18 +112,19 @@ class StandingsService
         // behaves the same on MySQL, PostgreSQL and SQLite (no bool binding).
         $rows = DB::table('players')
             ->leftJoin('player_scores', 'player_scores.player_id', '=', 'players.id')
-            ->select('players.id as player_id', 'players.name as player_name')
+            ->select('players.id as player_id', 'players.blader_name as player_name')
             ->selectRaw('COUNT(player_scores.id) as battles')
             ->selectRaw('COALESCE(SUM(player_scores.score), 0) as points')
             ->selectRaw('SUM(CASE WHEN player_scores.score = 1 THEN 1 ELSE 0 END) as spin_count')
             ->selectRaw('SUM(CASE WHEN player_scores.score = 2 AND NOT player_scores.is_burst THEN 1 ELSE 0 END) as over_count')
             ->selectRaw('SUM(CASE WHEN player_scores.is_burst THEN 1 ELSE 0 END) as burst_count')
             ->selectRaw('SUM(CASE WHEN player_scores.score = 3 THEN 1 ELSE 0 END) as extreme_count')
-            ->groupBy('players.id', 'players.name')
+            ->groupBy('players.id', 'players.blader_name')
             ->orderByDesc('points')
-            ->orderBy('players.name')
+            ->orderBy('players.blader_name')
             ->get();
 
+        $teams = $this->teamsByPlayer();
         $leaderboard = [];
         $rank = 0;
         $previousPoints = null;
@@ -124,6 +133,7 @@ class StandingsService
             /** @var array{player_id: int|string, player_name: string, battles: int|string|null, points: int|string|null, spin_count: int|string|null, over_count: int|string|null, burst_count: int|string|null, extreme_count: int|string|null} $data */
             $data = (array) $row;
             $points = (int) $data['points'];
+            $playerId = (int) $data['player_id'];
 
             if ($points !== $previousPoints) {
                 $rank = $index + 1;
@@ -131,8 +141,9 @@ class StandingsService
             }
 
             $leaderboard[] = [
-                'player_id' => (int) $data['player_id'],
+                'player_id' => $playerId,
                 'player_name' => (string) $data['player_name'],
+                'team' => $teams[$playerId] ?? null,
                 'rank' => $rank,
                 'battles' => (int) $data['battles'],
                 'points' => $points,
@@ -153,6 +164,7 @@ class StandingsService
      * @return array{
      *     player_id: int,
      *     player_name: string,
+     *     team: TeamSummary|null,
      *     date_started: string|null,
      *     rank: int|null,
      *     total_players: int,
@@ -205,7 +217,8 @@ class StandingsService
 
         return [
             'player_id' => $player->id,
-            'player_name' => $player->name,
+            'player_name' => $player->blader_name,
+            'team' => $this->teamsByPlayer()[$player->id] ?? null,
             'date_started' => $player->date_started?->toDateString(),
             'rank' => $battles > 0 ? ($row['rank'] ?? null) : null,
             'total_players' => count($leaderboard),
@@ -226,8 +239,8 @@ class StandingsService
     /**
      * Assemble a single award row.
      *
-     * @param  list<array{player_id: int, player_name: string, value: int}>  $leaders
-     * @return array{key: string, name: string, description: string, metric: string, leaders: list<array{player_id: int, player_name: string, value: int}>}
+     * @param  list<Leader>  $leaders
+     * @return array{key: string, name: string, description: string, metric: string, leaders: list<Leader>}
      */
     protected function award(string $key, string $name, string $description, string $metric, array $leaders): array
     {
@@ -243,14 +256,14 @@ class StandingsService
     /**
      * Players ranked by total score (Finals MVP).
      *
-     * @return list<array{player_id: int, player_name: string, value: int}>
+     * @return list<Leader>
      */
     protected function topBySum(int $limit): array
     {
         $rows = DB::table('player_scores')
             ->join('players', 'players.id', '=', 'player_scores.player_id')
-            ->select('players.id as player_id', 'players.name as player_name', DB::raw('SUM(player_scores.score) as value'))
-            ->groupBy('players.id', 'players.name')
+            ->select('players.id as player_id', 'players.blader_name as player_name', DB::raw('SUM(player_scores.score) as value'))
+            ->groupBy('players.id', 'players.blader_name')
             ->orderByDesc('value')
             ->orderBy('players.id')
             ->limit($limit)
@@ -264,15 +277,15 @@ class StandingsService
      *
      * Returns an empty list when no player has a start date recorded yet.
      *
-     * @return list<array{player_id: int, player_name: string, value: int}>
+     * @return list<Leader>
      */
     protected function rookies(int $limit): array
     {
         $rows = DB::table('players')
             ->join('player_scores', 'player_scores.player_id', '=', 'players.id')
             ->whereNotNull('players.date_started')
-            ->select('players.id as player_id', 'players.name as player_name', DB::raw('SUM(player_scores.score) as value'))
-            ->groupBy('players.id', 'players.name', 'players.date_started')
+            ->select('players.id as player_id', 'players.blader_name as player_name', DB::raw('SUM(player_scores.score) as value'))
+            ->groupBy('players.id', 'players.blader_name', 'players.date_started')
             ->havingRaw('SUM(player_scores.score) > 0')
             ->orderByDesc('players.date_started')
             ->orderByDesc('value')
@@ -287,14 +300,14 @@ class StandingsService
      * Players ranked by the number of entries matching the given filter.
      *
      * @param  callable(Builder): Builder  $filter
-     * @return list<array{player_id: int, player_name: string, value: int}>
+     * @return list<Leader>
      */
     protected function topByCount(callable $filter, int $limit): array
     {
         $query = DB::table('player_scores')
             ->join('players', 'players.id', '=', 'player_scores.player_id')
-            ->select('players.id as player_id', 'players.name as player_name', DB::raw('COUNT(*) as value'))
-            ->groupBy('players.id', 'players.name')
+            ->select('players.id as player_id', 'players.blader_name as player_name', DB::raw('COUNT(*) as value'))
+            ->groupBy('players.id', 'players.blader_name')
             ->orderByDesc('value')
             ->orderBy('players.id')
             ->limit($limit);
@@ -308,10 +321,11 @@ class StandingsService
      * Normalize raw query rows, dropping any zero-value rows.
      *
      * @param  array<int, object>  $rows
-     * @return list<array{player_id: int, player_name: string, value: int}>
+     * @return list<Leader>
      */
     protected function normalize(array $rows): array
     {
+        $teams = $this->teamsByPlayer();
         $leaders = [];
 
         foreach ($rows as $row) {
@@ -322,13 +336,39 @@ class StandingsService
                 continue;
             }
 
+            $playerId = (int) $data['player_id'];
+
             $leaders[] = [
-                'player_id' => (int) $data['player_id'],
+                'player_id' => $playerId,
                 'player_name' => (string) $data['player_name'],
                 'value' => (int) $data['value'],
+                'team' => $teams[$playerId] ?? null,
             ];
         }
 
         return $leaders;
+    }
+
+    /**
+     * Each player's current team (their latest membership), keyed by player id.
+     *
+     * Memoized per service instance: every leaderboard reuses one lookup.
+     *
+     * @return array<int, TeamSummary>
+     */
+    protected function teamsByPlayer(): array
+    {
+        return once(function (): array {
+            $teams = [];
+
+            // Oldest first, so a later membership overwrites an earlier one.
+            foreach (TeamMember::query()->with('team')->orderBy('id')->get() as $membership) {
+                if ($membership->team !== null) {
+                    $teams[$membership->player_id] = $membership->team->summary();
+                }
+            }
+
+            return $teams;
+        });
     }
 }

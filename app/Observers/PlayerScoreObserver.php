@@ -65,7 +65,8 @@ class PlayerScoreObserver
                 'subject' => 'score',
                 'score_id' => $playerScore->id,
                 'player_id' => $playerScore->player_id,
-                'player_name' => $playerScore->player?->name,
+                // Snapshot of the display (blader) name at the time of the change.
+                'player_name' => $playerScore->player?->blader_name,
                 'old' => $old,
                 'new' => $new,
             ],

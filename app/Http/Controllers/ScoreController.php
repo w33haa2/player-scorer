@@ -31,23 +31,25 @@ class ScoreController extends Controller
         $burstFilter = $request->string('is_burst')->toString();
 
         $query = PlayerScore::query()
-            ->with('player:id,name')
+            ->with('player:id,blader_name')
             ->join('players', 'players.id', '=', 'player_scores.player_id')
             ->select('player_scores.*')
-            ->when($search !== '', fn ($q) => $q->whereLike('players.name', "%{$search}%", caseSensitive: false))
+            ->when($search !== '', fn ($q) => $q->where(fn ($inner) => $inner
+                ->whereLike('players.blader_name', "%{$search}%", caseSensitive: false)
+                ->orWhereLike('players.name', "%{$search}%", caseSensitive: false)))
             ->when(in_array($scoreFilter, [1, 2, 3], true), fn ($q) => $q->where('player_scores.score', $scoreFilter))
             ->when($burstFilter !== '', fn ($q) => $q->where('player_scores.is_burst', $burstFilter === '1' || $burstFilter === 'true'));
 
         // Rank matches by relevance (exact > starts-with > contains) when searching.
         if ($search !== '') {
             $query->orderByRaw(
-                'CASE WHEN LOWER(players.name) = LOWER(?) THEN 0 WHEN LOWER(players.name) LIKE LOWER(?) THEN 1 ELSE 2 END',
+                'CASE WHEN LOWER(players.blader_name) = LOWER(?) THEN 0 WHEN LOWER(players.blader_name) LIKE LOWER(?) THEN 1 ELSE 2 END',
                 [$search, $search.'%'],
             );
         }
 
         if ($sort === 'player_name') {
-            $query->orderBy('players.name', $direction);
+            $query->orderBy('players.blader_name', $direction);
         } else {
             $query->orderBy("player_scores.{$sort}", $direction);
         }
@@ -59,7 +61,7 @@ class ScoreController extends Controller
             ->through(fn (PlayerScore $score): array => [
                 'id' => $score->id,
                 'player_id' => $score->player_id,
-                'player_name' => $score->player->name,
+                'player_name' => $score->player->blader_name,
                 'score' => $score->score,
                 'is_burst' => $score->is_burst,
                 'created_at' => $score->created_at?->toIso8601String(),

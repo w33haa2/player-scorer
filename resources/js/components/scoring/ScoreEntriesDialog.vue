@@ -91,7 +91,9 @@ function submit(): void {
     <Dialog
         v-model:visible="visible"
         modal
-        :header="player ? `Record scores for ${player.name}` : 'Record scores'"
+        :header="
+            player ? `Record scores for ${player.blader_name}` : 'Record scores'
+        "
         :style="{ width: '95vw', maxWidth: '36rem' }"
         :draggable="false"
         dismissable-mask

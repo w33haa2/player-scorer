@@ -20,6 +20,7 @@ import { Skeleton } from '@/components/ui/skeleton';
                     class="flex h-8 items-center gap-3"
                 >
                     <Skeleton class="h-3 w-3" />
+                    <Skeleton class="size-5 rounded-sm" />
                     <Skeleton
                         class="h-3.5 flex-1"
                         :class="row === 1 ? 'max-w-40' : 'max-w-32'"

@@ -5,12 +5,22 @@ import ProfileController from '@/actions/App/Http/Controllers/Settings/ProfileCo
 import DeleteUser from '@/components/DeleteUser.vue';
 import Heading from '@/components/Heading.vue';
 import InputError from '@/components/InputError.vue';
+import SeedPlayerData from '@/components/SeedPlayerData.vue';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { edit } from '@/routes/profile';
+import type { PlayerDataStatus } from '@/types/scoring';
+
+defineProps<{
+    mustVerifyEmail: boolean;
+    status?: string | null;
+    playerData: PlayerDataStatus;
+}>();
 
 defineOptions({
+    // Several root nodes, so shared props can't fall through as attributes.
+    inheritAttrs: false,
     layout: {
         breadcrumbs: [
             {
@@ -78,6 +88,8 @@ const user = computed(() => page.props.auth.user);
             </div>
         </Form>
     </div>
+
+    <SeedPlayerData :player-data="playerData" />
 
     <DeleteUser />
 </template>

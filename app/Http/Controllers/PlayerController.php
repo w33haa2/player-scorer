@@ -21,20 +21,24 @@ class PlayerController extends Controller
         $direction = $request->string('direction')->lower()->toString() === 'desc' ? 'desc' : 'asc';
         $perPage = (int) min(max($request->integer('per_page', 10), 5), 100);
 
-        $allowedSorts = ['name', 'date_started', 'scores_count', 'scores_total'];
+        $allowedSorts = ['blader_name', 'name', 'date_started', 'scores_count', 'scores_total'];
         $sort = $request->string('sort')->toString();
-        $sort = in_array($sort, $allowedSorts, true) ? $sort : 'name';
+        $sort = in_array($sort, $allowedSorts, true) ? $sort : 'blader_name';
 
         $query = Player::query()
+            ->with('teams')
             ->withCount('scores')
             ->withSum('scores as scores_total', 'score')
-            ->when($search !== '', fn ($builder) => $builder->whereLike('name', "%{$search}%", caseSensitive: false));
+            ->when($search !== '', fn ($builder) => $builder->where(fn ($inner) => $inner
+                ->whereLike('blader_name', "%{$search}%", caseSensitive: false)
+                ->orWhereLike('name', "%{$search}%", caseSensitive: false)));
 
         // Rank matches by relevance (exact > starts-with > contains) when searching.
         if ($search !== '') {
             $query->orderByRaw(
-                'CASE WHEN LOWER(name) = LOWER(?) THEN 0 WHEN LOWER(name) LIKE LOWER(?) THEN 1 ELSE 2 END',
-                [$search, $search.'%'],
+                'CASE WHEN LOWER(blader_name) = LOWER(?) OR LOWER(name) = LOWER(?) THEN 0 '
+                .'WHEN LOWER(blader_name) LIKE LOWER(?) OR LOWER(name) LIKE LOWER(?) THEN 1 ELSE 2 END',
+                [$search, $search, $search.'%', $search.'%'],
             );
         }
 
@@ -46,6 +50,8 @@ class PlayerController extends Controller
             ->through(fn (Player $player): array => [
                 'id' => $player->id,
                 'name' => $player->name,
+                'blader_name' => $player->blader_name,
+                'team' => $player->currentTeam()?->summary(),
                 'date_started' => $player->date_started?->toDateString(),
                 'scores_count' => $player->scores_count,
                 'scores_total' => (int) ($player->scores_total ?? 0),

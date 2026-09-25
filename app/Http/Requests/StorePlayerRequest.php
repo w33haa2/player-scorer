@@ -22,7 +22,8 @@ class StorePlayerRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'name' => ['required', 'string', 'max:255'],
+            'blader_name' => ['required', 'string', 'max:255'],
+            'name' => ['nullable', 'string', 'max:255'],
             'date_started' => ['nullable', 'date'],
         ];
     }

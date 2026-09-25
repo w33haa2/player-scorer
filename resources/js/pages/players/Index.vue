@@ -19,6 +19,7 @@ import PlayerController from '@/actions/App/Http/Controllers/PlayerController';
 import PageHeader from '@/components/PageHeader.vue';
 import PlayerFormDialog from '@/components/scoring/PlayerFormDialog.vue';
 import ScoreEntriesDialog from '@/components/scoring/ScoreEntriesDialog.vue';
+import TeamLogo from '@/components/TeamLogo.vue';
 import { Skeleton } from '@/components/ui/skeleton';
 import { skeletonRows, useServerQuery } from '@/composables/useServerQuery';
 import { index as playersIndex } from '@/routes/players';
@@ -65,7 +66,7 @@ function onPage(event: DataTablePageEvent): void {
 }
 
 function onSort(event: DataTableSortEvent): void {
-    filters.sort = (event.sortField as string) || 'name';
+    filters.sort = (event.sortField as string) || 'blader_name';
     filters.direction = event.sortOrder === 1 ? 'asc' : 'desc';
     filters.page = 1;
     apply();
@@ -130,7 +131,7 @@ function confirmDelete(): void {
     }
 
     confirm.require({
-        header: `Delete ${player.name}?`,
+        header: `Delete ${player.blader_name}?`,
         message:
             'Their recorded scores will be deleted too. This can’t be undone.',
         rejectProps: { label: 'Cancel', severity: 'secondary', text: true },
@@ -178,7 +179,7 @@ function formatDate(value: string | null): string {
             <InputIcon class="pi pi-search" />
             <InputText
                 v-model="filters.search"
-                placeholder="Search by name"
+                placeholder="Search blader or name"
                 aria-label="Search players"
                 fluid
                 @input="onSearch"
@@ -221,10 +222,24 @@ function formatDate(value: string | null): string {
                 </div>
             </template>
 
+            <Column field="blader_name" header="Blader name" sortable>
+                <template #body="{ data }">
+                    <div v-if="loading" class="flex items-center gap-2.5">
+                        <Skeleton class="size-5 shrink-0 rounded-sm" />
+                        <Skeleton class="h-4 w-28" />
+                    </div>
+                    <div v-else class="flex items-center gap-2.5">
+                        <TeamLogo :team="data.team" />
+                        <span class="font-medium">{{ data.blader_name }}</span>
+                    </div>
+                </template>
+            </Column>
             <Column field="name" header="Name" sortable>
                 <template #body="{ data }">
                     <Skeleton v-if="loading" class="h-4 w-36" />
-                    <span v-else class="font-medium">{{ data.name }}</span>
+                    <span v-else class="text-muted-foreground">{{
+                        data.name ?? '—'
+                    }}</span>
                 </template>
             </Column>
             <Column field="date_started" header="Started" sortable>
@@ -267,7 +282,7 @@ function formatDate(value: string | null): string {
                             size="small"
                             severity="secondary"
                             outlined
-                            :aria-label="`Record scores for ${data.name}`"
+                            :aria-label="`Record scores for ${data.blader_name}`"
                             @click="openScores(data)"
                         />
                         <Button
@@ -276,7 +291,7 @@ function formatDate(value: string | null): string {
                             rounded
                             size="small"
                             severity="secondary"
-                            :aria-label="`More actions for ${data.name}`"
+                            :aria-label="`More actions for ${data.blader_name}`"
                             @click="toggleMenu($event, data)"
                         />
                     </div>

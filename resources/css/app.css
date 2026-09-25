@@ -53,6 +53,9 @@
     /* Single warm highlight, reserved for "current holder" / leader moments. */
     --color-highlight: var(--highlight);
 
+    /* Team acronyms (the jersey tag before a blader name, e.g. "DNV"). */
+    --color-team: var(--team);
+
     --color-border: var(--border);
     --color-input: var(--input);
     --color-ring: var(--ring);
@@ -106,6 +109,7 @@
     --destructive: #dc2626;
     --destructive-foreground: #fafafa;
     --highlight: #b45309;
+    --team: #0f766e;
     --border: #e4e4e7;
     --input: #e4e4e7;
     --ring: #a1a1aa;
@@ -144,6 +148,7 @@
     --destructive: #ef4444;
     --destructive-foreground: #fafafa;
     --highlight: #f59e0b;
+    --team: #2dd4bf;
     --border: #27272a;
     --input: #27272a;
     --ring: #52525b;

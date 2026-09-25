@@ -167,16 +167,37 @@ Two tournament admins are seeded (`UserSeeder`):
 
 The six awards are seeded via `AwardSeeder`.
 
+### DBBL roster (one-time)
+
+**Settings → Profile → Seed player data** loads the DBBL roster from the jersey workbook:
+24 teams (name, acronym, logo) and 146 bladers. It's a **reset**: every existing player, their
+battles and the audit log are deleted first. It requires the admin's password and can only run
+**once** (recorded in `data_seeds`, whose unique name also blocks a concurrent second click).
+
+- Roster data: `database/data/dbbl-roster.php`, extracted from the workbook. The jersey tag
+  (`HBK- HAVOC`) is split into the team `acronym` (`HBK`) and the `blader_name` (`HAVOC`).
+- Logos: the workbook's own images, resized to 128px WebP in `public/images/teams/`.
+- Logic: `App\Services\PlayerDataSeeder`.
+
 ---
 
 ## Data Model
 
 | Table           | Columns                                                                 |
 | --------------- | ----------------------------------------------------------------------- |
-| `players`       | `id`, `name` (required), `date_started` (nullable), timestamps          |
+| `players`       | `id`, `name` (real name, nullable), `blader_name` (required), `date_started` (nullable), timestamps |
+| `teams`         | `id`, `name` (unique), `acronym` (nullable), `logo_path` (nullable, relative to `public/`), timestamps |
+| `team_members`  | `id`, `team_id` (FK), `player_id` (FK), timestamps. Pivot, unique per team + player |
+| `data_seeds`    | `id`, `name` (unique), `user_id` (FK, nullable), timestamps. One-time seeds that have run |
 | `awards`        | `id`, `name` (required), timestamps                                     |
 | `player_scores` | `id`, `player_id` (FK), `score` (1–3), `is_burst` (bool), timestamps    |
 | `action_logs`   | `id`, `user_id` (FK, nullable), `changes` (JSON), timestamps            |
+
+### Names and teams
+
+Players are shown everywhere by their **blader name**, with their team logo (hover for the
+full team name) and the team acronym as a coloured tag, e.g. **DNV** Ferrari_430. The public
+standings never expose real names. A player's current team is their latest `team_members` row.
 
 ### Score rules
 
@@ -212,6 +233,7 @@ snapshot. Human-readable messages are derived on the frontend (Audit Logs page).
 | POST   | `/players/{player}/scores` | `players.scores.store`| Add one or more scores           |
 | PUT    | `/scores/{score}`          | `scores.update`       | Update a single score            |
 | GET    | `/audit-logs`              | `audit-logs.index`    | Recent admin activity            |
+| POST   | `/settings/player-data`    | `player-data.store`   | One-time DBBL roster seed (reset) |
 
 > Scores can be **created and updated** but **not deleted** through the app.
 

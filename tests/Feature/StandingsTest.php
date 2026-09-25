@@ -3,6 +3,7 @@
 use App\Http\Middleware\HandleInertiaRequests;
 use App\Models\Player;
 use App\Models\PlayerScore;
+use App\Models\Team;
 use App\Services\StandingsService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 
@@ -25,8 +26,8 @@ test('the standings page is publicly accessible', function () {
 });
 
 test('finals mvp is the player with the highest total score', function () {
-    $low = Player::factory()->create(['name' => 'Low']);
-    $high = Player::factory()->create(['name' => 'High']);
+    $low = Player::factory()->create(['blader_name' => 'Low']);
+    $high = Player::factory()->create(['blader_name' => 'High']);
 
     PlayerScore::factory()->for($low)->score(1)->count(2)->create();  // total 2
     PlayerScore::factory()->for($high)->score(3)->count(2)->create(); // total 6
@@ -103,7 +104,7 @@ test('burst god has the most burst-finish entries', function () {
 test('leaderboards return the top contenders in order, capped at the limit', function () {
     collect(['A' => 5, 'B' => 3, 'C' => 2, 'D' => 1])
         ->each(function (int $spins, string $name): void {
-            $player = Player::factory()->create(['name' => $name]);
+            $player = Player::factory()->create(['blader_name' => $name]);
             PlayerScore::factory()->for($player)->score(1)->count($spins)->create();
         });
 
@@ -116,10 +117,10 @@ test('leaderboards return the top contenders in order, capped at the limit', fun
 });
 
 test('the player leaderboard ranks by points with ties sharing a rank', function () {
-    $alpha = Player::factory()->create(['name' => 'Alpha']);
-    $bravo = Player::factory()->create(['name' => 'Bravo']);
-    $charlie = Player::factory()->create(['name' => 'Charlie']);
-    Player::factory()->create(['name' => 'Delta']); // no battles
+    $alpha = Player::factory()->create(['blader_name' => 'Alpha']);
+    $bravo = Player::factory()->create(['blader_name' => 'Bravo']);
+    $charlie = Player::factory()->create(['blader_name' => 'Charlie']);
+    Player::factory()->create(['blader_name' => 'Delta']); // no battles
 
     PlayerScore::factory()->for($alpha)->score(3)->count(2)->create(); // 6
     PlayerScore::factory()->for($bravo)->score(1)->count(3)->create(); // 3
@@ -153,8 +154,8 @@ test('the player leaderboard breaks battles down by finish type', function () {
 });
 
 test('a player profile includes rank, totals, placements and recent battles', function () {
-    $rookie = Player::factory()->startedOn('2025-06-01')->create(['name' => 'Rookie']);
-    $veteran = Player::factory()->startedOn('2024-01-01')->create(['name' => 'Veteran']);
+    $rookie = Player::factory()->startedOn('2025-06-01')->create(['blader_name' => 'Rookie']);
+    $veteran = Player::factory()->startedOn('2024-01-01')->create(['blader_name' => 'Veteran']);
 
     PlayerScore::factory()->for($rookie)->score(3)->count(3)->create(); // 9
     PlayerScore::factory()->for($veteran)->score(1)->create();          // 1
@@ -219,7 +220,7 @@ test('refreshing reloads only the standings data', function () {
 });
 
 test('a deep link opens a player stat card for guests', function () {
-    $player = Player::factory()->create(['name' => 'Linked']);
+    $player = Player::factory()->create(['blader_name' => 'Linked']);
     PlayerScore::factory()->for($player)->score(3)->create();
 
     $this->get(route('standings.index', ['player' => $player->id]))
@@ -246,6 +247,32 @@ test('clicking a player loads only their stat card via a partial reload', functi
         ->assertJsonPath('props.selectedPlayer.player_id', $player->id)
         ->assertJsonMissingPath('props.leaderboard')
         ->assertJsonMissingPath('props.awards');
+});
+
+test('standings show blader names and team logos, never real names', function () {
+    $team = Team::factory()->create(['name' => 'Highland Bladers', 'acronym' => 'HBK', 'logo_path' => 'images/teams/hbk.webp']);
+    $player = Player::factory()->onTeam($team)->create(['blader_name' => 'HAVOC', 'name' => 'Ralph Jan Santos']);
+    PlayerScore::factory()->for($player)->score(3)->create();
+
+    $expectedTeam = ['name' => 'Highland Bladers', 'acronym' => 'HBK', 'logo_url' => asset('images/teams/hbk.webp')];
+
+    $this->get(route('standings.index', ['player' => $player->id]))
+        ->assertOk()
+        ->assertDontSee('Ralph Jan Santos')
+        ->assertInertia(fn ($page) => $page
+            ->where('selectedPlayer.player_name', 'HAVOC')
+            ->where('selectedPlayer.team', $expectedTeam)
+            ->loadDeferredProps(fn ($reload) => $reload
+                ->where('leaderboard.0.player_name', 'HAVOC')
+                ->where('leaderboard.0.team', $expectedTeam)
+                ->where('awards.0.leaders.0.player_name', 'HAVOC')
+                ->where('awards.0.leaders.0.team', $expectedTeam)));
+});
+
+test('players without a team have no team on the standings', function () {
+    PlayerScore::factory()->score(1)->create();
+
+    expect(app(StandingsService::class)->playerLeaderboard()[0]['team'])->toBeNull();
 });
 
 test('an unknown player id yields no stat card', function () {

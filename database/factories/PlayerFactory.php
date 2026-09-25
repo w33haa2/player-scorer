@@ -3,6 +3,7 @@
 namespace Database\Factories;
 
 use App\Models\Player;
+use App\Models\Team;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
 /**
@@ -23,7 +24,8 @@ class PlayerFactory extends Factory
     public function definition(): array
     {
         return [
-            'name' => fake()->unique()->name(),
+            'name' => fake()->optional()->name(),
+            'blader_name' => fake()->unique()->userName(),
             'date_started' => fake()->optional()->dateTimeBetween('-1 year', 'now'),
         ];
     }
@@ -36,5 +38,15 @@ class PlayerFactory extends Factory
         return $this->state(fn (array $attributes): array => [
             'date_started' => $date,
         ]);
+    }
+
+    /**
+     * Put the player on a team (a new one unless given).
+     */
+    public function onTeam(?Team $team = null): static
+    {
+        return $this->afterCreating(function (Player $player) use ($team): void {
+            $player->teams()->attach($team ?? Team::factory()->create());
+        });
     }
 }
