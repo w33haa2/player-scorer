@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { Head, router } from '@inertiajs/vue3';
 import Button from 'primevue/button';
-import { computed, ref, watch } from 'vue';
+import { computed, ref, useTemplateRef, watch } from 'vue';
 import BladerName from '@/components/BladerName.vue';
 import PlayerStatsDialog from '@/components/standings/PlayerStatsDialog.vue';
 import TeamLogo from '@/components/TeamLogo.vue';
@@ -143,10 +143,58 @@ const rows = computed(() => {
     });
 });
 
-// Match the current row count on refresh so the page height doesn't jump.
-const skeletonRowCount = computed(
-    () => props.leaderboard?.length || INITIAL_SKELETON_ROWS,
+/* ------------------------------------------------------------------ */
+/* Leaderboard search (client-side: the full leaderboard is loaded)    */
+/* ------------------------------------------------------------------ */
+
+const search = ref('');
+const searchInput = useTemplateRef<HTMLInputElement>('searchInput');
+
+const searchTerms = computed(() =>
+    search.value.trim().toLowerCase().split(/\s+/).filter(Boolean),
 );
+
+// Filtered after ranking, so matches keep their real position. Every word
+// must match the acronym, blader name or team name ("dnv fer" works).
+const visibleRows = computed(() => {
+    const terms = searchTerms.value;
+
+    if (!terms.length) {
+        return rows.value;
+    }
+
+    return rows.value.filter((row) => {
+        const haystack = [row.team?.acronym, row.player_name, row.team?.name]
+            .filter(Boolean)
+            .join(' ')
+            .toLowerCase();
+
+        return terms.every((term) => haystack.includes(term));
+    });
+});
+
+const searchSummary = computed(() =>
+    searchTerms.value.length
+        ? `${visibleRows.value.length} of ${rows.value.length}`
+        : '',
+);
+
+function clearSearch(): void {
+    search.value = '';
+    searchInput.value?.focus();
+}
+
+// Match the visible row count on refresh so the page height doesn't jump.
+const skeletonRowCount = computed(
+    () => visibleRows.value.length || INITIAL_SKELETON_ROWS,
+);
+
+// These bladers always get a glowing rainbow outline on their leaderboard row.
+const FEATURED_BLADERS = new Set(['xetty', 'jiyo', 'zxy', 'ferrari_430']);
+
+function isFeatured(row: LeaderboardRow): boolean {
+    return FEATURED_BLADERS.has(row.player_name.toLowerCase());
+}
 
 function ariaSort(key: SortKey): 'descending' | 'none' {
     return sortKey.value === key ? 'descending' : 'none';
@@ -347,9 +395,49 @@ function onDialogHide(): void {
                 </p>
             </div>
 
+            <!-- @container: featured rows size their outline to this card. -->
             <div
-                class="overflow-hidden rounded-lg border border-border bg-card"
+                class="@container overflow-hidden rounded-lg border border-border bg-card"
             >
+                <!-- Search sits inside the card as the table's first row. -->
+                <label
+                    class="flex items-center gap-3 border-b border-border px-4 transition-colors focus-within:bg-accent/40"
+                >
+                    <span
+                        class="pi pi-search text-xs text-muted-foreground"
+                        aria-hidden="true"
+                    />
+                    <input
+                        ref="searchInput"
+                        v-model="search"
+                        type="search"
+                        placeholder="Search bladers or teams"
+                        aria-label="Search the leaderboard"
+                        autocomplete="off"
+                        enterkeyhint="search"
+                        class="h-11 min-w-0 flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground [&::-webkit-search-cancel-button]:appearance-none"
+                        @keydown.esc="search = ''"
+                    />
+                    <template v-if="searchTerms.length">
+                        <span
+                            class="shrink-0 font-mono text-xs text-muted-foreground"
+                            aria-hidden="true"
+                            >{{ searchSummary }}</span
+                        >
+                        <button
+                            type="button"
+                            class="-mr-1.5 flex size-7 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground focus-visible:outline-2 focus-visible:outline-ring"
+                            aria-label="Clear search"
+                            @click.prevent="clearSearch"
+                        >
+                            <span class="pi pi-times text-xs" />
+                        </button>
+                    </template>
+                    <span class="sr-only" aria-live="polite">{{
+                        searchSummary ? `${searchSummary} bladers` : ''
+                    }}</span>
+                </label>
+
                 <table class="w-full text-sm">
                     <thead>
                         <tr
@@ -437,21 +525,27 @@ function onDialogHide(): void {
                     </tbody>
                     <tbody v-else class="divide-y divide-border">
                         <tr
-                            v-for="row in rows"
+                            v-for="row in visibleRows"
                             :key="row.player_id"
                             class="cursor-pointer transition-colors hover:bg-accent/60"
                             @click="openPlayer(row)"
                         >
                             <td
                                 class="px-4 py-3 font-mono text-xs"
-                                :class="
+                                :class="[
                                     row.position === 1
                                         ? 'font-medium text-highlight'
                                         : row.position <= 3
                                           ? 'text-foreground'
-                                          : 'text-muted-foreground'
-                                "
+                                          : 'text-muted-foreground',
+                                    { relative: isFeatured(row) },
+                                ]"
                             >
+                                <span
+                                    v-if="isFeatured(row)"
+                                    class="rainbow-outline"
+                                    aria-hidden="true"
+                                />
                                 {{ row.position }}
                             </td>
                             <td class="px-4 py-3">
@@ -491,6 +585,21 @@ function onDialogHide(): void {
                                 class="px-4 py-10 text-center text-sm text-muted-foreground"
                             >
                                 No players yet.
+                            </td>
+                        </tr>
+                        <tr v-else-if="!visibleRows.length">
+                            <td
+                                :colspan="columns.length + 2"
+                                class="px-4 py-10 text-center text-sm text-muted-foreground"
+                            >
+                                No bladers or teams match “{{ search.trim() }}”.
+                                <button
+                                    type="button"
+                                    class="ml-1 font-medium text-foreground hover:underline"
+                                    @click="clearSearch"
+                                >
+                                    Clear search
+                                </button>
                             </td>
                         </tr>
                     </tbody>

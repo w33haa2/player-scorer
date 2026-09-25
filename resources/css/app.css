@@ -183,3 +183,79 @@
         font-variant-numeric: tabular-nums;
     }
 }
+
+@layer components {
+    /*
+      Glowing rainbow outline for featured leaderboard rows. A <tr> can't
+      reliably be a positioning context, so this sits in the row's first cell
+      (position: relative) and spans the full row with container units; the
+      table card is the inline-size container (`@container`).
+    */
+    .rainbow-outline {
+        position: absolute;
+        inset-block: 3px;
+        left: 4px;
+        width: calc(100cqw - 8px);
+        border-radius: var(--radius-md);
+        pointer-events: none;
+    }
+
+    /* Crisp ring: the gradient only shows through the 1.5px padding. */
+    .rainbow-outline::before {
+        content: '';
+        position: absolute;
+        inset: 0;
+        padding: 1.5px;
+        border-radius: inherit;
+        background: linear-gradient(
+                90deg,
+                #ff3d7f,
+                #ff9f1c,
+                #ffe14d,
+                #3ddc84,
+                #22b8ff,
+                #8b5cf6,
+                #ff3d7f
+            )
+            0 0 / 200% 100%;
+        -webkit-mask:
+            linear-gradient(#000 0 0) content-box,
+            linear-gradient(#000 0 0);
+        -webkit-mask-composite: xor;
+        mask:
+            linear-gradient(#000 0 0) content-box exclude,
+            linear-gradient(#000 0 0);
+        animation: rainbow-slide 3s linear infinite;
+    }
+
+    /* Soft glow that cycles through the same hues. */
+    .rainbow-outline::after {
+        content: '';
+        position: absolute;
+        inset: 0;
+        border-radius: inherit;
+        box-shadow:
+            0 0 10px rgb(255 61 127 / 0.5),
+            0 0 18px rgb(34 184 255 / 0.3);
+        animation: rainbow-hue 3s linear infinite;
+    }
+}
+
+@keyframes rainbow-slide {
+    to {
+        background-position: 200% 0;
+    }
+}
+
+@keyframes rainbow-hue {
+    to {
+        filter: hue-rotate(360deg);
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .rainbow-outline::before,
+    .rainbow-outline::after {
+        animation: none;
+    }
+}
