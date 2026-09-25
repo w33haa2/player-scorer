@@ -7,26 +7,29 @@ defineOptions({
 
 type Props = {
     className?: HTMLAttributes['class'];
+    /**
+     * Use the higher-resolution file for large placements (hero, sign-in).
+     * The default small file is plenty for header/sidebar sizes.
+     */
+    large?: boolean;
 };
 
-defineProps<Props>();
+withDefaults(defineProps<Props>(), { large: false });
 </script>
 
 <template>
-    <!-- DBBL mark: an open ring (spin) around a center point. -->
-    <svg
-        xmlns="http://www.w3.org/2000/svg"
-        viewBox="0 0 24 24"
+    <!-- Official DBBL crest (transparent WebP generated from resources/images). -->
+    <img
+        :src="
+            large ? '/images/dbbl-logo-512.webp' : '/images/dbbl-logo-128.webp'
+        "
+        alt="Davao Beyblade Battle League"
+        :width="large ? 512 : 128"
+        :height="large ? 512 : 128"
+        decoding="async"
+        draggable="false"
+        class="object-contain select-none"
         :class="className"
         v-bind="$attrs"
-    >
-        <path
-            fill="currentColor"
-            d="M21.66 9.41A10 10 0 1 1 14.59 2.34L13.68 5.72A6.5 6.5 0 1 0 18.28 10.32Z"
-        />
-        <path
-            fill="currentColor"
-            d="M12 9.25a2.75 2.75 0 1 1 0 5.5 2.75 2.75 0 0 1 0-5.5Z"
-        />
-    </svg>
+    />
 </template>

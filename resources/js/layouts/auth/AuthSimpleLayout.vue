@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { Link } from '@inertiajs/vue3';
 import AppearanceToggle from '@/components/AppearanceToggle.vue';
+import AppLogoIcon from '@/components/AppLogoIcon.vue';
 import AppWordmark from '@/components/AppWordmark.vue';
 import { home } from '@/routes';
 
@@ -22,6 +23,7 @@ defineProps<{
         <div class="flex flex-1 items-center justify-center px-4 pb-16">
             <div class="w-full max-w-sm">
                 <div class="mb-8">
+                    <AppLogoIcon large class="mb-6 size-24" />
                     <h1 class="text-xl font-semibold tracking-tight">
                         {{ title }}
                     </h1>

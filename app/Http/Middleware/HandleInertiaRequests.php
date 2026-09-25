@@ -2,6 +2,7 @@
 
 namespace App\Http\Middleware;
 
+use App\Services\Seo;
 use Illuminate\Http\Request;
 use Inertia\Middleware;
 
@@ -42,6 +43,8 @@ class HandleInertiaRequests extends Middleware
                 'user' => $request->user(),
             ],
             'sidebarOpen' => ! $request->hasCookie('sidebar_state') || $request->cookie('sidebar_state') === 'true',
+            // Default is noindex; public pages override this with their own `seo`.
+            'seo' => Seo::defaults(),
         ];
     }
 }

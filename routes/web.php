@@ -4,10 +4,16 @@ use App\Http\Controllers\ActionLogController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\PlayerController;
 use App\Http\Controllers\ScoreController;
+use App\Http\Controllers\SeoController;
 use App\Http\Controllers\StandingsController;
+use App\Http\Controllers\WelcomeController;
 use Illuminate\Support\Facades\Route;
 
-Route::inertia('/', 'Welcome')->name('home');
+Route::get('/', WelcomeController::class)->name('home');
+
+// Crawler files, generated so they always use the current APP_URL.
+Route::get('robots.txt', [SeoController::class, 'robots'])->name('robots');
+Route::get('sitemap.xml', [SeoController::class, 'sitemap'])->name('sitemap');
 
 // Public: current award standings.
 Route::get('standings', [StandingsController::class, 'index'])->name('standings.index');

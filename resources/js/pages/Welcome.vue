@@ -1,11 +1,14 @@
 <script setup lang="ts">
-import { Head, Link } from '@inertiajs/vue3';
+import { Head, Link, usePage } from '@inertiajs/vue3';
 import Button from 'primevue/button';
+import AppLogoIcon from '@/components/AppLogoIcon.vue';
 import { finishTypes } from '@/lib/finishTypes';
 import { login } from '@/routes';
 import { index as standings } from '@/routes/standings';
 
 defineOptions({ inheritAttrs: false });
+
+const page = usePage();
 
 const titles = [
     {
@@ -27,31 +30,44 @@ const titles = [
 </script>
 
 <template>
-    <Head title="Welcome" />
+    <Head :title="page.props.seo.title ?? undefined" />
 
     <div class="flex flex-col gap-16 sm:gap-20">
         <!-- Intro -->
-        <section class="max-w-2xl pt-4 sm:pt-10">
-            <p class="text-sm text-muted-foreground">
-                Davao Beyblade Battle League
-            </p>
-            <h1
-                class="mt-3 text-4xl leading-[1.1] font-semibold tracking-tight sm:text-5xl"
-            >
-                Scores and standings for the DBBL round robin.
-            </h1>
-            <p class="mt-5 text-base leading-relaxed text-muted-foreground">
-                Admins record the finish of each battle here. Titles are worked
-                out from those results automatically, so the standings are
-                always up to date.
-            </p>
-            <div class="mt-8 flex flex-wrap items-center gap-3">
-                <Link :href="standings()" prefetch>
-                    <Button label="View standings" />
-                </Link>
-                <Link :href="login()" prefetch>
-                    <Button label="Admin sign in" severity="secondary" text />
-                </Link>
+        <section
+            class="grid items-center gap-8 pt-4 sm:pt-10 lg:grid-cols-[minmax(0,1fr)_20rem] lg:gap-12"
+        >
+            <AppLogoIcon
+                large
+                fetchpriority="high"
+                class="size-32 sm:size-40 lg:order-last lg:size-80 lg:justify-self-end"
+            />
+            <div class="max-w-2xl">
+                <p class="text-sm text-muted-foreground">
+                    Davao Beyblade Battle League
+                </p>
+                <h1
+                    class="mt-3 text-4xl leading-[1.1] font-semibold tracking-tight sm:text-5xl"
+                >
+                    Scores and standings for the DBBL round robin.
+                </h1>
+                <p class="mt-5 text-base leading-relaxed text-muted-foreground">
+                    Admins record the finish of every Beyblade X battle here.
+                    Titles are worked out from those results automatically, so
+                    the standings are always up to date.
+                </p>
+                <div class="mt-8 flex flex-wrap items-center gap-3">
+                    <Link :href="standings()" prefetch>
+                        <Button label="View standings" />
+                    </Link>
+                    <Link :href="login()" prefetch>
+                        <Button
+                            label="Admin sign in"
+                            severity="secondary"
+                            text
+                        />
+                    </Link>
+                </div>
             </div>
         </section>
 

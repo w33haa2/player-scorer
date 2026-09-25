@@ -139,6 +139,13 @@ const isLoadingPlayer = computed(
         displayedPlayer.value?.player_id !== requestedId.value,
 );
 
+// Matches the server-rendered titles (StandingsController) for each state.
+const pageTitle = computed(() =>
+    dialogVisible.value && requestedName.value
+        ? `${requestedName.value} player stats`
+        : 'Standings & title race',
+);
+
 function openPlayer(player: { player_id: number; player_name: string }): void {
     requestedId.value = player.player_id;
     requestedName.value = player.player_name;
@@ -177,7 +184,7 @@ function onDialogHide(): void {
 </script>
 
 <template>
-    <Head title="Standings" />
+    <Head :title="pageTitle" />
 
     <div class="flex flex-col gap-12">
         <header

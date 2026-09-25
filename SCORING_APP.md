@@ -43,6 +43,27 @@ configured with a matching `cssLayer`.
 - **Loading states:** the dashboard uses deferred props with skeleton fallbacks and a Refresh
   button; list pages show skeleton rows while paging, sorting, searching or filtering.
 
+### SEO (basic)
+
+- Each page's `seo` prop (built with `App\Services\Seo`) is rendered by `app.blade.php` into the
+  initial HTML: `<title>`, description, robots, canonical, Open Graph and Twitter tags. This works
+  without JavaScript, so link previews (Facebook/Messenger, Discord, X) show the right text.
+- **Indexed:** `/` and `/standings` (the standings description is built from live data).
+  **Not indexed:** player cards (`/standings?player=`, previews still work), auth, and admin pages.
+- `/robots.txt` and `/sitemap.xml` are generated routes (there is no static `public/robots.txt`).
+- Share image: `public/og-image.png`, generated from `resources/images/og-image.svg` (features the crest).
+
+### Logo
+
+- The official DBBL crest is used everywhere via `AppLogoIcon` (sidebar, header, landing, sign-in).
+- Source files live in `resources/images/`: `dbbl-logo-original.jpg` (as supplied) and
+  `dbbl-logo.png` (1024px transparent master, background removed).
+- Served assets: `public/images/dbbl-logo-{128,512}.webp`, `public/images/dbbl-logo-512.png`,
+  `public/favicon.ico` (16/32/48), `public/favicon-32x32.png`, `public/apple-touch-icon.png`.
+- If the crest changes, supply a transparent PNG/SVG if possible and regenerate these sizes.
+- **Set `APP_URL` to the real public URL in production.** Canonical links, the sitemap, and social
+  image URLs are all built from it.
+
 ---
 
 ## Running with Docker (recommended)

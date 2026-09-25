@@ -1,0 +1,37 @@
+<!--
+  Social share image (1200x630) featuring the official DBBL crest.
+  Uses dbbl-logo.png (transparent master) from this same directory.
+  Regenerate the PNG after editing:
+  rsvg-convert -w 1200 -h 630 resources/images/og-image.svg -o public/og-image.png
+-->
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="1200" height="630" viewBox="0 0 1200 630">
+    <rect width="1200" height="630" fill="#09090b"/>
+
+    <!-- Faint node network, echoing the site background. -->
+    <g stroke="#3f3f46" stroke-width="1.5" fill="none" opacity="0.6">
+        <path d="M900 60 L1010 110 L1120 70"/>
+        <path d="M1010 110 L1080 190 L1160 150"/>
+        <path d="M840 520 L950 560 L1060 505 L1150 575"/>
+        <path d="M950 560 L990 610"/>
+    </g>
+    <g fill="#52525b">
+        <circle cx="900" cy="60" r="4"/>
+        <circle cx="1010" cy="110" r="4"/>
+        <circle cx="1120" cy="70" r="4"/>
+        <circle cx="1080" cy="190" r="4"/>
+        <circle cx="1160" cy="150" r="4"/>
+        <circle cx="840" cy="520" r="4"/>
+        <circle cx="950" cy="560" r="4"/>
+        <circle cx="1060" cy="505" r="4"/>
+        <circle cx="1150" cy="575" r="4"/>
+    </g>
+
+    <!-- Official DBBL crest. -->
+    <image x="60" y="95" width="440" height="440" href="dbbl-logo.png" xlink:href="dbbl-logo.png" preserveAspectRatio="xMidYMid meet"/>
+
+    <text x="555" y="272" fill="#fafafa" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="84" font-weight="700" letter-spacing="-2">DBBL Scorer</text>
+    <text x="555" y="330" fill="#a1a1aa" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="34">Davao Beyblade Battle League</text>
+
+    <rect x="555" y="370" width="72" height="6" rx="3" fill="#f59e0b"/>
+    <text x="555" y="432" fill="#71717a" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="28">Scores · Standings · Title race</text>
+</svg>
