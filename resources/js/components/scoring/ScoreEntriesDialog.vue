@@ -5,6 +5,7 @@ import Dialog from 'primevue/dialog';
 import Message from 'primevue/message';
 import { computed, watch } from 'vue';
 import ScoreController from '@/actions/App/Http/Controllers/ScoreController';
+import FinishTypePicker from '@/components/scoring/FinishTypePicker.vue';
 import type { Player, ScoreEntry } from '@/types/scoring';
 
 const props = defineProps<{
@@ -12,75 +13,6 @@ const props = defineProps<{
 }>();
 
 const visible = defineModel<boolean>('visible', { required: true });
-
-type FinishType = {
-    key: string;
-    label: string;
-    points: number;
-    icon: string;
-    score: number;
-    is_burst: boolean;
-    /** Classes for the selected button (border + ring + tint). */
-    ring: string;
-    /** Classes for the selected icon badge. */
-    badge: string;
-    /** Text accent when selected. */
-    text: string;
-    /** Chip classes for the header summary tag. */
-    tag: string;
-};
-
-// The four Beyblade X finish types, mapped to (score, is_burst) + accent colors.
-const finishTypes: FinishType[] = [
-    {
-        key: 'spin',
-        label: 'Spin',
-        points: 1,
-        icon: 'pi pi-sync',
-        score: 1,
-        is_burst: false,
-        ring: 'border-sky-500 bg-sky-500/5 ring-1 ring-sky-500',
-        badge: 'bg-sky-500 text-white',
-        text: 'text-sky-600 dark:text-sky-400',
-        tag: 'bg-sky-500/10 text-sky-600 dark:text-sky-400',
-    },
-    {
-        key: 'over',
-        label: 'Over',
-        points: 2,
-        icon: 'pi pi-arrow-up',
-        score: 2,
-        is_burst: false,
-        ring: 'border-violet-500 bg-violet-500/5 ring-1 ring-violet-500',
-        badge: 'bg-violet-500 text-white',
-        text: 'text-violet-600 dark:text-violet-400',
-        tag: 'bg-violet-500/10 text-violet-600 dark:text-violet-400',
-    },
-    {
-        key: 'burst',
-        label: 'Burst',
-        points: 2,
-        icon: 'pi pi-bolt',
-        score: 2,
-        is_burst: true,
-        ring: 'border-orange-500 bg-orange-500/5 ring-1 ring-orange-500',
-        badge: 'bg-orange-500 text-white',
-        text: 'text-orange-600 dark:text-orange-400',
-        tag: 'bg-orange-500/10 text-orange-600 dark:text-orange-400',
-    },
-    {
-        key: 'extreme',
-        label: 'Extreme',
-        points: 3,
-        icon: 'pi pi-star-fill',
-        score: 3,
-        is_burst: false,
-        ring: 'border-rose-500 bg-rose-500/5 ring-1 ring-rose-500',
-        badge: 'bg-rose-500 text-white',
-        text: 'text-rose-600 dark:text-rose-400',
-        tag: 'bg-rose-500/10 text-rose-600 dark:text-rose-400',
-    },
-];
 
 type FormEntry = ScoreEntry & { _key: number };
 
@@ -127,53 +59,6 @@ function removeEntry(index: number): void {
     }
 }
 
-function keyFor(entry: ScoreEntry): string {
-    if (entry.is_burst) {
-        return 'burst';
-    }
-
-    if (entry.score === 1) {
-        return 'spin';
-    }
-
-    return entry.score === 3 ? 'extreme' : 'over';
-}
-
-function typeFor(entry: ScoreEntry): FinishType {
-    return (
-        finishTypes.find((type) => type.key === keyFor(entry)) ?? finishTypes[0]
-    );
-}
-
-function selectFinish(entry: ScoreEntry, type: FinishType): void {
-    entry.score = type.score;
-    entry.is_burst = type.is_burst;
-}
-
-// Arrow-key navigation within a battle's radio group.
-function onFinishKeydown(entry: ScoreEntry, event: KeyboardEvent): void {
-    const keys = ['ArrowRight', 'ArrowDown', 'ArrowLeft', 'ArrowUp'];
-
-    if (!keys.includes(event.key)) {
-        return;
-    }
-
-    event.preventDefault();
-
-    const current = finishTypes.findIndex((type) => type.key === keyFor(entry));
-    const forward = event.key === 'ArrowRight' || event.key === 'ArrowDown';
-    const next =
-        (current + (forward ? 1 : -1) + finishTypes.length) %
-        finishTypes.length;
-
-    selectFinish(entry, finishTypes[next]);
-
-    const container = event.currentTarget as HTMLElement;
-    const radios =
-        container.querySelectorAll<HTMLButtonElement>('[role="radio"]');
-    radios[next]?.focus();
-}
-
 function errorFor(index: number): string | undefined {
     const errors = form.errors as Record<string, string>;
 
@@ -206,43 +91,31 @@ function submit(): void {
     <Dialog
         v-model:visible="visible"
         modal
-        :header="`Add Scores${player ? ' — ' + player.name : ''}`"
+        :header="player ? `Record scores for ${player.name}` : 'Record scores'"
         :style="{ width: '95vw', maxWidth: '36rem' }"
         :draggable="false"
         dismissable-mask
     >
-        <form class="flex flex-col gap-6" @submit.prevent="submit">
-            <p class="text-surface-500 dark:text-surface-400 text-sm">
-                Pick the finish type for each battle. Add as many as you need.
+        <form class="flex flex-col gap-5" @submit.prevent="submit">
+            <p class="text-sm text-muted-foreground">
+                Choose how each battle ended. Add a row per battle.
             </p>
 
             <TransitionGroup
-                tag="div"
+                tag="ol"
                 name="battle"
-                class="-mr-2 flex max-h-[52vh] flex-col gap-4 overflow-y-auto pr-2"
+                class="-mr-2 flex max-h-[52vh] flex-col gap-3 overflow-y-auto pr-2"
             >
-                <div
+                <li
                     v-for="(entry, index) in form.scores"
                     :key="entry._key"
-                    class="border-surface-200 dark:border-surface-700 rounded-2xl border p-4 sm:p-5"
+                    class="rounded-lg border border-border p-3 sm:p-4"
                 >
-                    <div class="mb-3 flex items-center justify-between gap-2">
-                        <div class="flex min-w-0 items-center gap-2">
-                            <span
-                                class="text-surface-500 dark:text-surface-400 text-xs font-semibold tracking-wide uppercase"
-                            >
-                                Battle {{ index + 1 }}
-                            </span>
-                            <span
-                                class="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium"
-                                :class="typeFor(entry).tag"
-                            >
-                                <span :class="typeFor(entry).icon" />
-                                {{ typeFor(entry).label }} ·
-                                {{ typeFor(entry).points }} pt
-                            </span>
-                        </div>
-                        <div class="flex items-center">
+                    <div class="mb-2.5 flex items-center justify-between">
+                        <span class="text-sm font-medium"
+                            >Battle {{ index + 1 }}</span
+                        >
+                        <div class="-mr-1.5 flex items-center">
                             <Button
                                 type="button"
                                 icon="pi pi-copy"
@@ -257,7 +130,7 @@ function submit(): void {
                             <Button
                                 type="button"
                                 icon="pi pi-times"
-                                severity="danger"
+                                severity="secondary"
                                 text
                                 rounded
                                 size="small"
@@ -269,54 +142,11 @@ function submit(): void {
                         </div>
                     </div>
 
-                    <div
-                        role="radiogroup"
-                        :aria-label="`Finish type for battle ${index + 1}`"
-                        class="grid grid-cols-2 gap-3"
-                        @keydown="onFinishKeydown(entry, $event)"
-                    >
-                        <button
-                            v-for="type in finishTypes"
-                            :key="type.key"
-                            type="button"
-                            role="radio"
-                            :aria-checked="keyFor(entry) === type.key"
-                            :tabindex="keyFor(entry) === type.key ? 0 : -1"
-                            class="flex items-center gap-3 rounded-xl border p-3 text-left transition duration-200 select-none focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/50"
-                            :class="
-                                keyFor(entry) === type.key
-                                    ? type.ring
-                                    : 'border-surface-200 dark:border-surface-700 hover:border-surface-300 dark:hover:border-surface-600'
-                            "
-                            @click="selectFinish(entry, type)"
-                        >
-                            <span
-                                class="flex size-10 shrink-0 items-center justify-center rounded-lg transition duration-200"
-                                :class="
-                                    keyFor(entry) === type.key
-                                        ? type.badge
-                                        : 'bg-surface-100 text-surface-500 dark:bg-surface-800 dark:text-surface-300'
-                                "
-                            >
-                                <span :class="[type.icon, 'text-lg']" />
-                            </span>
-                            <span class="flex flex-col">
-                                <span
-                                    class="leading-tight font-medium"
-                                    :class="
-                                        keyFor(entry) === type.key
-                                            ? type.text
-                                            : ''
-                                    "
-                                    >{{ type.label }}</span
-                                >
-                                <span
-                                    class="text-surface-500 dark:text-surface-400 text-xs"
-                                    >{{ type.points }} pt</span
-                                >
-                            </span>
-                        </button>
-                    </div>
+                    <FinishTypePicker
+                        v-model:score="entry.score"
+                        v-model:is-burst="entry.is_burst"
+                        :label="`How battle ${index + 1} ended`"
+                    />
 
                     <Message
                         v-if="errorFor(index)"
@@ -327,28 +157,27 @@ function submit(): void {
                     >
                         {{ errorFor(index) }}
                     </Message>
-                </div>
+                </li>
             </TransitionGroup>
 
-            <Button
+            <button
                 type="button"
-                label="Add another battle"
-                icon="pi pi-plus"
-                severity="secondary"
-                outlined
-                class="w-full border-dashed py-3"
+                class="flex w-full items-center justify-center gap-2 rounded-lg border border-dashed border-border py-2.5 text-sm text-muted-foreground transition-colors hover:border-ring hover:text-foreground"
                 @click="addEntry"
-            />
+            >
+                <span class="pi pi-plus text-xs" />
+                Add battle
+            </button>
 
             <div
-                class="border-surface-200 dark:border-surface-700 flex flex-col gap-3 border-t pt-5 sm:flex-row sm:items-center sm:justify-between"
+                class="flex flex-col gap-3 border-t border-border pt-4 sm:flex-row sm:items-center sm:justify-between"
             >
-                <span class="text-surface-500 dark:text-surface-400 text-sm">
+                <span class="text-sm text-muted-foreground">
                     {{ form.scores.length }}
-                    {{ form.scores.length === 1 ? 'battle' : 'battles' }} ·
-                    <span
-                        class="text-surface-700 dark:text-surface-200 font-semibold"
-                        >{{ totalPoints }} pts</span
+                    {{ form.scores.length === 1 ? 'battle' : 'battles' }},
+                    <span class="font-mono text-foreground"
+                        >{{ totalPoints }}
+                        {{ totalPoints === 1 ? 'point' : 'points' }}</span
                     >
                 </span>
 
@@ -363,8 +192,7 @@ function submit(): void {
                     />
                     <Button
                         type="submit"
-                        :label="`Save ${form.scores.length > 1 ? form.scores.length + ' scores' : 'score'}`"
-                        icon="pi pi-check"
+                        label="Save"
                         class="flex-1 sm:flex-none"
                         :loading="form.processing"
                     />
@@ -378,17 +206,16 @@ function submit(): void {
 .battle-enter-active,
 .battle-leave-active {
     transition:
-        opacity 0.25s ease,
-        transform 0.25s ease;
+        opacity 0.2s ease,
+        transform 0.2s ease;
 }
 
 .battle-enter-from {
     opacity: 0;
-    transform: translateY(-8px);
+    transform: translateY(-4px);
 }
 
 .battle-leave-to {
     opacity: 0;
-    transform: translateX(12px);
 }
 </style>

@@ -1,145 +1,124 @@
 <script setup lang="ts">
 import { Head, Link } from '@inertiajs/vue3';
 import Button from 'primevue/button';
+import { finishTypes } from '@/lib/finishTypes';
 import { login } from '@/routes';
 import { index as standings } from '@/routes/standings';
 
 defineOptions({ inheritAttrs: false });
 
-const awards = [
+const titles = [
     {
         name: 'Finals MVP',
-        icon: 'pi pi-star-fill',
-        description: 'Highest accumulated score.',
-        badge: 'from-amber-400 to-orange-500',
+        description: 'Highest total points across all battles.',
     },
     {
         name: 'Rookie of the Season',
-        icon: 'pi pi-sparkles',
         description: 'Best newcomer in the scene.',
-        badge: 'from-emerald-400 to-teal-500',
     },
-    {
-        name: 'Stamina King',
-        icon: 'pi pi-heart-fill',
-        description: 'Most spin finishes by a player.',
-        badge: 'from-sky-400 to-blue-500',
-    },
-    {
-        name: 'Over Lord',
-        icon: 'pi pi-crown',
-        description: 'Most over finishes by a player.',
-        badge: 'from-violet-400 to-purple-500',
-    },
+    { name: 'Stamina King', description: 'Most spin finishes by a player.' },
+    { name: 'Over Lord', description: 'Most over finishes by a player.' },
     {
         name: 'Extreme Champion',
-        icon: 'pi pi-bolt',
         description: 'Most extreme finishes by a player.',
-        badge: 'from-rose-400 to-red-500',
     },
-    {
-        name: 'Burst God',
-        icon: 'pi pi-flag-fill',
-        description: 'Most burst finishes by a player.',
-        badge: 'from-orange-400 to-amber-500',
-    },
+    { name: 'Burst God', description: 'Most burst finishes by a player.' },
 ];
 </script>
 
 <template>
     <Head title="Welcome" />
 
-    <div class="flex flex-col gap-16 pb-16">
-        <!-- Hero -->
-        <section
-            class="relative flex flex-col items-center gap-6 py-20 text-center sm:py-28"
-        >
-            <div
-                aria-hidden="true"
-                class="pointer-events-none absolute top-1/2 left-1/2 h-[380px] w-[380px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-emerald-500/10 blur-[130px]"
-            />
-
-            <div class="relative flex flex-col items-center gap-6">
-                <span
-                    class="animate__animated animate__fadeInDown border-surface-200 bg-surface-0/80 text-surface-600 dark:border-surface-700 dark:bg-surface-900/80 dark:text-surface-300 inline-flex items-center gap-2 rounded-full border px-4 py-1.5 text-sm font-medium shadow-sm backdrop-blur"
-                >
-                    <span class="pi pi-bolt text-emerald-500" />
-                    Davao Beyblade Battle League · Beyblade X
-                </span>
-
-                <h1
-                    class="animate__animated animate__fadeInUp text-surface-900 max-w-3xl text-5xl font-extrabold tracking-tight sm:text-6xl dark:text-white"
-                    style="animation-delay: 0.1s"
-                >
-                    DBBL Player Scorer
-                </h1>
-
-                <p
-                    class="animate__animated animate__fadeInUp text-surface-500 dark:text-surface-400 max-w-xl text-lg"
-                    style="animation-delay: 0.2s"
-                >
-                    The official companion app for tracking match finishes and
-                    crowning the champions of the Davao Beyblade Battle League.
-                </p>
-
-                <div
-                    class="animate__animated animate__fadeInUp mt-2 flex flex-wrap items-center justify-center gap-3"
-                    style="animation-delay: 0.3s"
-                >
-                    <Link :href="standings()" prefetch>
-                        <Button
-                            label="View Current Standings"
-                            icon="pi pi-trophy"
-                            size="large"
-                        />
-                    </Link>
-                    <Link :href="login()">
-                        <Button
-                            label="Admin Login"
-                            icon="pi pi-sign-in"
-                            size="large"
-                            severity="secondary"
-                            outlined
-                        />
-                    </Link>
-                </div>
+    <div class="flex flex-col gap-16 sm:gap-20">
+        <!-- Intro -->
+        <section class="max-w-2xl pt-4 sm:pt-10">
+            <p class="text-sm text-muted-foreground">
+                Davao Beyblade Battle League
+            </p>
+            <h1
+                class="mt-3 text-4xl leading-[1.1] font-semibold tracking-tight sm:text-5xl"
+            >
+                Scores and standings for the DBBL round robin.
+            </h1>
+            <p class="mt-5 text-base leading-relaxed text-muted-foreground">
+                Admins record the finish of each battle here. Titles are worked
+                out from those results automatically, so the standings are
+                always up to date.
+            </p>
+            <div class="mt-8 flex flex-wrap items-center gap-3">
+                <Link :href="standings()" prefetch>
+                    <Button label="View standings" />
+                </Link>
+                <Link :href="login()" prefetch>
+                    <Button label="Admin sign in" severity="secondary" text />
+                </Link>
             </div>
         </section>
 
-        <!-- Awards -->
-        <section class="flex flex-col gap-8">
-            <div class="text-center">
-                <h2 class="text-2xl font-bold sm:text-3xl">
-                    Awards on the line
+        <!-- Scoring -->
+        <section
+            class="grid gap-6 lg:grid-cols-[16rem_minmax(0,1fr)] lg:gap-12"
+        >
+            <div>
+                <h2 class="text-lg font-semibold tracking-tight">
+                    How scoring works
                 </h2>
-                <p class="text-surface-500 dark:text-surface-400 mt-2">
-                    Six titles decided purely by the finishes.
+                <p class="mt-2 text-sm text-muted-foreground">
+                    Every battle ends in one of four finishes. Each is worth a
+                    fixed number of points.
                 </p>
             </div>
-
-            <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                <div
-                    v-for="(award, index) in awards"
-                    :key="award.name"
-                    class="group animate__animated animate__fadeInUp border-surface-200 bg-surface-0/80 dark:border-surface-700 dark:bg-surface-900/80 flex items-center gap-4 rounded-2xl border p-5 shadow-sm backdrop-blur transition duration-300 hover:-translate-y-1 hover:border-emerald-500/40 hover:shadow-lg"
-                    :style="{ animationDelay: `${0.1 + index * 0.07}s` }"
+            <ul
+                class="divide-y divide-border rounded-lg border border-border bg-card"
+            >
+                <li
+                    v-for="finish in finishTypes"
+                    :key="finish.key"
+                    class="flex items-start gap-4 px-5 py-4"
                 >
-                    <div
-                        class="flex size-12 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br text-white shadow-md transition-transform duration-300 group-hover:scale-110"
-                        :class="award.badge"
-                    >
-                        <span :class="[award.icon, 'text-xl']" />
-                    </div>
-                    <div class="min-w-0">
-                        <h3 class="font-semibold">{{ award.name }}</h3>
-                        <p
-                            class="text-surface-500 dark:text-surface-400 mt-0.5 text-sm"
-                        >
-                            {{ award.description }}
+                    <span
+                        class="mt-1.5 size-2 shrink-0 rounded-full"
+                        :class="finish.dot"
+                    />
+                    <div class="min-w-0 flex-1">
+                        <p class="text-sm font-medium">
+                            {{ finish.label }} finish
+                        </p>
+                        <p class="mt-0.5 text-sm text-muted-foreground">
+                            {{ finish.description }}
                         </p>
                     </div>
-                </div>
+                    <span class="font-mono text-sm text-muted-foreground"
+                        >+{{ finish.points }}</span
+                    >
+                </li>
+            </ul>
+        </section>
+
+        <!-- Titles -->
+        <section
+            class="grid gap-6 lg:grid-cols-[16rem_minmax(0,1fr)] lg:gap-12"
+        >
+            <div>
+                <h2 class="text-lg font-semibold tracking-tight">The titles</h2>
+                <p class="mt-2 text-sm text-muted-foreground">
+                    Six titles are awarded at the end of the season.
+                </p>
             </div>
+            <dl
+                class="grid overflow-hidden rounded-lg border border-border bg-card sm:grid-cols-2"
+            >
+                <div
+                    v-for="title in titles"
+                    :key="title.name"
+                    class="border-b border-border px-5 py-4 last:border-b-0 sm:odd:border-r sm:[&:nth-last-child(-n+2)]:border-b-0"
+                >
+                    <dt class="text-sm font-medium">{{ title.name }}</dt>
+                    <dd class="mt-0.5 text-sm text-muted-foreground">
+                        {{ title.description }}
+                    </dd>
+                </div>
+            </dl>
         </section>
     </div>
 </template>

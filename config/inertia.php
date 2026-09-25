@@ -15,8 +15,15 @@ return [
     |
     */
 
+    /*
+    | Disabled by default: PrimeVue's styled mode injects component CSS with
+    | JavaScript at mount time, so server-rendered markup would paint unstyled
+    | (e.g. native-looking tables) until hydration. Client rendering lets
+    | PrimeVue inject its styles before the first paint. Production also has
+    | no SSR server running, so this keeps dev and prod consistent.
+    */
     'ssr' => [
-        'enabled' => true,
+        'enabled' => (bool) env('INERTIA_SSR_ENABLED', false),
         'url' => 'http://127.0.0.1:13714',
         // 'bundle' => base_path('bootstrap/ssr/ssr.mjs'),
 

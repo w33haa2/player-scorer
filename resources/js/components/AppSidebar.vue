@@ -1,16 +1,13 @@
 <script setup lang="ts">
 import { Link } from '@inertiajs/vue3';
 import {
-    BookOpen,
     ClipboardList,
-    FolderGit2,
     LayoutGrid,
     ScrollText,
     Trophy,
     Users,
 } from '@lucide/vue';
 import AppLogo from '@/components/AppLogo.vue';
-import NavFooter from '@/components/NavFooter.vue';
 import NavMain from '@/components/NavMain.vue';
 import NavUser from '@/components/NavUser.vue';
 import {
@@ -29,45 +26,18 @@ import { index as scores } from '@/routes/scores';
 import { index as standings } from '@/routes/standings';
 import type { NavItem } from '@/types';
 
-const mainNavItems: NavItem[] = [
-    {
-        title: 'Dashboard',
-        href: dashboard(),
-        icon: LayoutGrid,
-    },
-    {
-        title: 'Players',
-        href: players(),
-        icon: Users,
-    },
-    {
-        title: 'Scores',
-        href: scores(),
-        icon: ClipboardList,
-    },
-    {
-        title: 'Audit Logs',
-        href: auditLogs(),
-        icon: ScrollText,
-    },
-    {
-        title: 'Standings',
-        href: standings(),
-        icon: Trophy,
-    },
+const overviewItems: NavItem[] = [
+    { title: 'Overview', href: dashboard(), icon: LayoutGrid },
 ];
 
-const footerNavItems: NavItem[] = [
-    {
-        title: 'Repository',
-        href: 'https://github.com/laravel/vue-starter-kit',
-        icon: FolderGit2,
-    },
-    {
-        title: 'Documentation',
-        href: 'https://laravel.com/docs/starter-kits#vue',
-        icon: BookOpen,
-    },
+const tournamentItems: NavItem[] = [
+    { title: 'Players', href: players(), icon: Users },
+    { title: 'Scores', href: scores(), icon: ClipboardList },
+];
+
+const recordItems: NavItem[] = [
+    { title: 'Standings', href: standings(), icon: Trophy },
+    { title: 'Audit log', href: auditLogs(), icon: ScrollText },
 ];
 </script>
 
@@ -85,12 +55,13 @@ const footerNavItems: NavItem[] = [
             </SidebarMenu>
         </SidebarHeader>
 
-        <SidebarContent>
-            <NavMain :items="mainNavItems" />
+        <SidebarContent class="gap-1">
+            <NavMain :items="overviewItems" />
+            <NavMain label="Tournament" :items="tournamentItems" />
+            <NavMain label="Records" :items="recordItems" />
         </SidebarContent>
 
         <SidebarFooter>
-            <NavFooter :items="footerNavItems" />
             <NavUser />
         </SidebarFooter>
     </Sidebar>

@@ -1,12 +1,12 @@
 <script setup lang="ts">
 import { useForm } from '@inertiajs/vue3';
 import Button from 'primevue/button';
-import Checkbox from 'primevue/checkbox';
 import Dialog from 'primevue/dialog';
-import InputNumber from 'primevue/inputnumber';
 import Message from 'primevue/message';
 import { watch } from 'vue';
 import ScoreController from '@/actions/App/Http/Controllers/ScoreController';
+import FinishTypePicker from '@/components/scoring/FinishTypePicker.vue';
+import { formatDateTime } from '@/lib/activity';
 import type { Score } from '@/types/scoring';
 
 const props = defineProps<{
@@ -30,13 +30,6 @@ watch(visible, (open) => {
     form.is_burst = props.score.is_burst;
 });
 
-// A burst finish always scores exactly 2, so lock the value.
-function onBurstToggle(): void {
-    if (form.is_burst) {
-        form.score = 2;
-    }
-}
-
 function submit(): void {
     if (!props.score) {
         return;
@@ -55,25 +48,23 @@ function submit(): void {
     <Dialog
         v-model:visible="visible"
         modal
-        :header="`Update Score${score ? ' — ' + score.player_name : ''}`"
-        :style="{ width: '95vw', maxWidth: '28rem' }"
+        header="Correct score"
+        :style="{ width: '95vw', maxWidth: '32rem' }"
         :draggable="false"
         dismissable-mask
     >
-        <form class="flex flex-col gap-4" @submit.prevent="submit">
+        <form class="flex flex-col gap-5" @submit.prevent="submit">
+            <p v-if="score" class="text-sm text-muted-foreground">
+                {{ score.player_name }} · recorded
+                {{ formatDateTime(score.created_at) }}
+            </p>
+
             <div class="flex flex-col gap-2">
-                <label class="text-sm font-medium">Score</label>
-                <InputNumber
-                    v-model="form.score"
-                    :min="1"
-                    :max="3"
-                    :disabled="form.is_burst"
-                    show-buttons
-                    button-layout="horizontal"
-                    increment-button-icon="pi pi-plus"
-                    decrement-button-icon="pi pi-minus"
-                    :invalid="!!form.errors.score"
-                    :input-style="{ width: '3rem' }"
+                <span class="text-sm font-medium">Finish</span>
+                <FinishTypePicker
+                    v-model:score="form.score"
+                    v-model:is-burst="form.is_burst"
+                    label="How the battle ended"
                 />
                 <Message
                     v-if="form.errors.score"
@@ -85,19 +76,7 @@ function submit(): void {
                 </Message>
             </div>
 
-            <div class="flex items-center gap-2">
-                <Checkbox
-                    input-id="edit-burst"
-                    v-model="form.is_burst"
-                    binary
-                    @change="onBurstToggle"
-                />
-                <label for="edit-burst" class="text-sm"
-                    >Is it burst finish?</label
-                >
-            </div>
-
-            <div class="mt-2 flex justify-end gap-2">
+            <div class="flex justify-end gap-2 border-t border-border pt-4">
                 <Button
                     type="button"
                     label="Cancel"
@@ -105,7 +84,11 @@ function submit(): void {
                     text
                     @click="visible = false"
                 />
-                <Button type="submit" label="Save" :loading="form.processing" />
+                <Button
+                    type="submit"
+                    label="Save changes"
+                    :loading="form.processing"
+                />
             </div>
         </form>
     </Dialog>

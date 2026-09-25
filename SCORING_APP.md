@@ -24,6 +24,25 @@ utilities able to override PrimeVue's styled theme, the CSS layer order is decla
 `resources/css/app.css` (`@layer theme, base, primevue, components, utilities;`) and PrimeVue is
 configured with a matching `cssLayer`.
 
+### UI & design system
+
+- **Look:** restrained, utility-first. Monochrome zinc neutrals, near-black/near-white primary
+  actions, and a single amber `highlight` token reserved for "current holder" moments.
+- **Tokens:** defined once in `resources/css/app.css` and shared by the shell and PrimeVue via the
+  custom preset in `resources/js/lib/theme.ts`. Use `text-muted-foreground`, `bg-card`,
+  `border-border`, `text-highlight`, etc.
+- **Type:** IBM Plex Sans (UI) and IBM Plex Mono (scores/stats, tabular figures).
+- **Theme:** dark by default; the header toggle switches light/dark and remembers the choice.
+- **Finish types** are defined once in `resources/js/lib/finishTypes.ts` and rendered with
+  `FinishBadge` / `FinishTypePicker`.
+- PrimeFlex's stylesheet is intentionally **not** imported: its unlayered `!important` utilities
+  (`grid`, `p-*`, `gap-*`) override Tailwind's and break layouts.
+- **Inertia SSR is off by default** (`INERTIA_SSR_ENABLED=false`). PrimeVue's styled mode injects
+  component CSS with JavaScript, so server-rendered markup would paint unstyled (e.g. native-looking
+  tables) until hydration. Client rendering avoids that flash.
+- **Loading states:** the dashboard uses deferred props with skeleton fallbacks and a Refresh
+  button; list pages show skeleton rows while paging, sorting, searching or filtering.
+
 ---
 
 ## Running with Docker (recommended)
@@ -158,7 +177,7 @@ snapshot. Human-readable messages are derived on the frontend (Audit Logs page).
 
 | Method | URI          | Name              | Description                        |
 | ------ | ------------ | ----------------- | ---------------------------------- |
-| GET    | `/standings` | `standings.index` | Aggregated award standings (public)|
+| GET    | `/standings` | `standings.index` | Tournament leaderboard + title race (public). `?player={id}` opens that player's stat card (shareable link). |
 
 **GUARDED** — requires an authenticated (and verified) admin:
 

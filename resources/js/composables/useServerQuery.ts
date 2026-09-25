@@ -1,5 +1,5 @@
 import { router } from '@inertiajs/vue3';
-import { reactive } from 'vue';
+import { reactive, ref } from 'vue';
 
 type QueryValue = string | number | boolean | null | undefined;
 
@@ -10,9 +10,16 @@ type Options = {
     debounce?: number;
 };
 
+/** Don't show a loader for responses faster than this (avoids flashing). */
+const LOADING_DELAY_MS = 120;
+/** Once a loader is visible, keep it up at least this long (avoids blinking). */
+const LOADING_MIN_MS = 300;
+
 /**
  * Small helper for driving server-side search / filter / sort / pagination
  * with Inertia partial reloads while preserving scroll and state.
+ *
+ * Exposes a `loading` flag suitable for skeleton placeholders.
  */
 export function useServerQuery<T extends Record<string, QueryValue>>(
     url: string,
@@ -20,8 +27,11 @@ export function useServerQuery<T extends Record<string, QueryValue>>(
     options: Options = {},
 ) {
     const filters = reactive({ ...initial }) as T;
+    const loading = ref(false);
 
-    let timeout: ReturnType<typeof setTimeout> | undefined;
+    let debounceTimer: ReturnType<typeof setTimeout> | undefined;
+    let loadingTimer: ReturnType<typeof setTimeout> | undefined;
+    let loadingShownAt = 0;
 
     function buildParams(): Record<string, QueryValue> {
         const params: Record<string, QueryValue> = {};
@@ -35,10 +45,36 @@ export function useServerQuery<T extends Record<string, QueryValue>>(
         return params;
     }
 
+    function startLoading(): void {
+        clearTimeout(loadingTimer);
+
+        loadingTimer = setTimeout(() => {
+            loading.value = true;
+            loadingShownAt = Date.now();
+        }, LOADING_DELAY_MS);
+    }
+
+    function stopLoading(): void {
+        clearTimeout(loadingTimer);
+
+        if (!loading.value) {
+            return;
+        }
+
+        const remaining = Math.max(
+            0,
+            LOADING_MIN_MS - (Date.now() - loadingShownAt),
+        );
+
+        loadingTimer = setTimeout(() => {
+            loading.value = false;
+        }, remaining);
+    }
+
     function apply(): void {
-        if (timeout) {
-            clearTimeout(timeout);
-            timeout = undefined;
+        if (debounceTimer) {
+            clearTimeout(debounceTimer);
+            debounceTimer = undefined;
         }
 
         router.get(url, buildParams(), {
@@ -46,15 +82,17 @@ export function useServerQuery<T extends Record<string, QueryValue>>(
             preserveScroll: true,
             replace: true,
             only: options.only,
+            onStart: startLoading,
+            onFinish: stopLoading,
         });
     }
 
     function debouncedApply(): void {
-        if (timeout) {
-            clearTimeout(timeout);
+        if (debounceTimer) {
+            clearTimeout(debounceTimer);
         }
 
-        timeout = setTimeout(apply, options.debounce ?? 300);
+        debounceTimer = setTimeout(apply, options.debounce ?? 300);
     }
 
     /** Reset paging back to the first page, then apply immediately. */
@@ -66,5 +104,20 @@ export function useServerQuery<T extends Record<string, QueryValue>>(
         apply();
     }
 
-    return { filters, apply, debouncedApply, applyFromFirstPage };
+    return { filters, loading, apply, debouncedApply, applyFromFirstPage };
+}
+
+/**
+ * Placeholder rows for a DataTable while it's loading. Keeps the current
+ * row count (so the table height doesn't jump), with a sensible minimum.
+ */
+export function skeletonRows(
+    currentCount: number,
+    perPage: number,
+): { id: string }[] {
+    const count = Math.min(perPage, Math.max(currentCount, 5));
+
+    return Array.from({ length: count }, (_, index) => ({
+        id: `skeleton-${index}`,
+    }));
 }

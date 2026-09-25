@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { Link } from '@inertiajs/vue3';
-import AppLogoIcon from '@/components/AppLogoIcon.vue';
+import AppearanceToggle from '@/components/AppearanceToggle.vue';
+import AppWordmark from '@/components/AppWordmark.vue';
 import { home } from '@/routes';
 
 defineProps<{
@@ -10,31 +11,26 @@ defineProps<{
 </script>
 
 <template>
-    <div
-        class="flex min-h-svh flex-col items-center justify-center gap-6 bg-background p-6 md:p-10"
-    >
-        <div class="w-full max-w-sm">
-            <div class="flex flex-col gap-8">
-                <div class="flex flex-col items-center gap-4">
-                    <Link
-                        :href="home()"
-                        class="flex flex-col items-center gap-2 font-medium"
+    <div class="relative flex min-h-svh flex-col bg-background">
+        <div class="flex items-center justify-between px-4 py-4 sm:px-6">
+            <Link :href="home()" aria-label="DBBL Scorer home">
+                <AppWordmark />
+            </Link>
+            <AppearanceToggle />
+        </div>
+
+        <div class="flex flex-1 items-center justify-center px-4 pb-16">
+            <div class="w-full max-w-sm">
+                <div class="mb-8">
+                    <h1 class="text-xl font-semibold tracking-tight">
+                        {{ title }}
+                    </h1>
+                    <p
+                        v-if="description"
+                        class="mt-1 text-sm text-muted-foreground"
                     >
-                        <div
-                            class="mb-1 flex h-9 w-9 items-center justify-center rounded-md"
-                        >
-                            <AppLogoIcon
-                                class="size-9 fill-current text-[var(--foreground)] dark:text-white"
-                            />
-                        </div>
-                        <span class="sr-only">{{ title }}</span>
-                    </Link>
-                    <div class="space-y-2 text-center">
-                        <h1 class="text-xl font-medium">{{ title }}</h1>
-                        <p class="text-center text-sm text-muted-foreground">
-                            {{ description }}
-                        </p>
-                    </div>
+                        {{ description }}
+                    </p>
                 </div>
                 <slot />
             </div>

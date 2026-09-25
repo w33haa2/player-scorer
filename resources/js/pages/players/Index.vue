@@ -13,13 +13,14 @@ import InputIcon from 'primevue/inputicon';
 import InputText from 'primevue/inputtext';
 import Menu from 'primevue/menu';
 import type { MenuItem } from 'primevue/menuitem';
-import Tag from 'primevue/tag';
 import { useConfirm } from 'primevue/useconfirm';
-import { ref } from 'vue';
+import { computed, ref } from 'vue';
 import PlayerController from '@/actions/App/Http/Controllers/PlayerController';
+import PageHeader from '@/components/PageHeader.vue';
 import PlayerFormDialog from '@/components/scoring/PlayerFormDialog.vue';
 import ScoreEntriesDialog from '@/components/scoring/ScoreEntriesDialog.vue';
-import { useServerQuery } from '@/composables/useServerQuery';
+import { Skeleton } from '@/components/ui/skeleton';
+import { skeletonRows, useServerQuery } from '@/composables/useServerQuery';
 import { index as playersIndex } from '@/routes/players';
 import type { Paginated, Player } from '@/types/scoring';
 
@@ -39,7 +40,7 @@ defineOptions({
     },
 });
 
-const { filters, apply, debouncedApply } = useServerQuery(
+const { filters, loading, apply, debouncedApply } = useServerQuery(
     playersIndex().url,
     {
         search: props.filters.search,
@@ -49,6 +50,12 @@ const { filters, apply, debouncedApply } = useServerQuery(
         page: props.players.current_page,
     },
     { only: ['players', 'filters'] },
+);
+
+const rows = computed(() =>
+    loading.value
+        ? skeletonRows(props.players.data.length, props.players.per_page)
+        : props.players.data,
 );
 
 function onPage(event: DataTablePageEvent): void {
@@ -85,25 +92,17 @@ const editingPlayer = ref<Player | null>(null);
 
 const menuItems = ref<MenuItem[]>([
     {
-        label: 'Update player',
+        label: 'Edit player',
         icon: 'pi pi-pencil',
         command: () => {
             editingPlayer.value = selectedPlayer.value;
             playerDialogVisible.value = true;
         },
     },
-    {
-        label: 'Add score',
-        icon: 'pi pi-plus-circle',
-        command: () => {
-            scoreDialogVisible.value = true;
-        },
-    },
     { separator: true },
     {
         label: 'Delete player',
         icon: 'pi pi-trash',
-        class: 'text-red-500',
         command: () => confirmDelete(),
     },
 ]);
@@ -111,6 +110,11 @@ const menuItems = ref<MenuItem[]>([
 function toggleMenu(event: MouseEvent, player: Player): void {
     selectedPlayer.value = player;
     menu.value?.toggle(event);
+}
+
+function openScores(player: Player): void {
+    selectedPlayer.value = player;
+    scoreDialogVisible.value = true;
 }
 
 function openCreateDialog(): void {
@@ -126,11 +130,11 @@ function confirmDelete(): void {
     }
 
     confirm.require({
-        header: 'Delete player',
-        message: `Delete ${player.name}? This also removes all of their scores.`,
-        icon: 'pi pi-exclamation-triangle',
+        header: `Delete ${player.name}?`,
+        message:
+            'Their recorded scores will be deleted too. This can’t be undone.',
         rejectProps: { label: 'Cancel', severity: 'secondary', text: true },
-        acceptProps: { label: 'Delete', severity: 'danger' },
+        acceptProps: { label: 'Delete player', severity: 'danger' },
         accept: () => {
             router.delete(PlayerController.destroy.url(player.id), {
                 preserveScroll: true,
@@ -155,44 +159,43 @@ function formatDate(value: string | null): string {
 <template>
     <Head title="Players" />
 
-    <div class="flex flex-col gap-4 p-4 sm:p-6">
-        <div
-            class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"
+    <div class="flex flex-col gap-6 p-4 sm:p-6">
+        <PageHeader
+            title="Players"
+            description="Everyone in the round robin. Record a player's battles from their row."
         >
-            <div>
-                <h1 class="text-xl font-semibold">Players</h1>
-                <p class="text-surface-500 dark:text-surface-400 text-sm">
-                    Manage tournament players and record their scores.
-                </p>
-            </div>
-            <Button
-                label="Add Player"
-                icon="pi pi-user-plus"
-                class="w-full sm:w-auto"
-                @click="openCreateDialog"
-            />
-        </div>
+            <template #actions>
+                <Button
+                    label="Add player"
+                    icon="pi pi-plus"
+                    size="small"
+                    @click="openCreateDialog"
+                />
+            </template>
+        </PageHeader>
 
-        <!-- Search -->
         <IconField class="w-full sm:max-w-xs">
             <InputIcon class="pi pi-search" />
             <InputText
                 v-model="filters.search"
-                placeholder="Search players by name…"
-                class="w-full"
+                placeholder="Search by name"
+                aria-label="Search players"
                 fluid
                 @input="onSearch"
             />
             <InputIcon
                 v-if="filters.search"
                 class="pi pi-times cursor-pointer"
+                role="button"
+                aria-label="Clear search"
                 @click="clearSearch"
             />
         </IconField>
 
         <DataTable
-            :value="players.data"
+            :value="rows"
             data-key="id"
+            :aria-busy="loading"
             lazy
             paginator
             :rows="players.per_page"
@@ -201,51 +204,82 @@ function formatDate(value: string | null): string {
             :rows-per-page-options="[10, 25, 50]"
             :sort-field="filters.sort"
             :sort-order="filters.direction === 'asc' ? 1 : -1"
-            striped-rows
-            class="border-surface-200 dark:border-surface-700 overflow-hidden rounded-lg border"
+            row-hover
+            class="overflow-hidden rounded-lg border border-border"
             @page="onPage"
             @sort="onSort"
         >
             <template #empty>
-                <div class="text-surface-500 py-8 text-center">
-                    {{
-                        filters.search
-                            ? 'No players match your search.'
-                            : 'No players yet. Add your first player.'
-                    }}
+                <div class="py-10 text-center text-sm text-muted-foreground">
+                    <template v-if="filters.search"
+                        >No players match “{{ filters.search }}”.</template
+                    >
+                    <template v-else
+                        >No players yet. Add the first one to start recording
+                        scores.</template
+                    >
                 </div>
             </template>
 
-            <Column field="name" header="Name" sortable />
-            <Column header="Date started" sortable field="date_started">
-                <template #body="{ data }">{{
-                    formatDate(data.date_started)
-                }}</template>
-            </Column>
-            <Column field="scores_count" header="Entries" sortable>
+            <Column field="name" header="Name" sortable>
                 <template #body="{ data }">
-                    <Tag :value="data.scores_count" severity="secondary" />
+                    <Skeleton v-if="loading" class="h-4 w-36" />
+                    <span v-else class="font-medium">{{ data.name }}</span>
                 </template>
             </Column>
-            <Column field="scores_total" header="Total points" sortable>
+            <Column field="date_started" header="Started" sortable>
                 <template #body="{ data }">
-                    <span class="font-semibold">{{ data.scores_total }}</span>
+                    <Skeleton v-if="loading" class="h-4 w-24" />
+                    <span v-else class="text-muted-foreground">{{
+                        formatDate(data.date_started)
+                    }}</span>
                 </template>
             </Column>
-            <Column
-                header="Actions"
-                :style="{ width: '5rem' }"
-                :body-style="{ textAlign: 'center' }"
-            >
+            <Column field="scores_count" header="Battles" sortable>
                 <template #body="{ data }">
-                    <Button
-                        icon="pi pi-ellipsis-v"
-                        text
-                        rounded
-                        severity="secondary"
-                        aria-label="Actions"
-                        @click="toggleMenu($event, data)"
-                    />
+                    <Skeleton v-if="loading" class="h-4 w-8" />
+                    <span v-else class="font-mono">{{
+                        data.scores_count
+                    }}</span>
+                </template>
+            </Column>
+            <Column field="scores_total" header="Points" sortable>
+                <template #body="{ data }">
+                    <Skeleton v-if="loading" class="h-4 w-8" />
+                    <span v-else class="font-mono font-medium">{{
+                        data.scores_total
+                    }}</span>
+                </template>
+            </Column>
+            <Column :style="{ width: '9rem' }">
+                <template #body="{ data }">
+                    <div
+                        v-if="loading"
+                        class="flex items-center justify-end gap-2"
+                    >
+                        <Skeleton class="h-7 w-20" />
+                        <Skeleton class="size-7" />
+                    </div>
+                    <div v-else class="flex items-center justify-end gap-1">
+                        <Button
+                            label="Record"
+                            icon="pi pi-plus"
+                            size="small"
+                            severity="secondary"
+                            outlined
+                            :aria-label="`Record scores for ${data.name}`"
+                            @click="openScores(data)"
+                        />
+                        <Button
+                            icon="pi pi-ellipsis-h"
+                            text
+                            rounded
+                            size="small"
+                            severity="secondary"
+                            :aria-label="`More actions for ${data.name}`"
+                            @click="toggleMenu($event, data)"
+                        />
+                    </div>
                 </template>
             </Column>
         </DataTable>

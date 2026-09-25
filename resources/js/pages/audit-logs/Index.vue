@@ -7,10 +7,14 @@ import IconField from 'primevue/iconfield';
 import InputIcon from 'primevue/inputicon';
 import InputText from 'primevue/inputtext';
 import Select from 'primevue/select';
-import Tag from 'primevue/tag';
-import { useServerQuery } from '@/composables/useServerQuery';
+import { computed } from 'vue';
+import FinishBadge from '@/components/FinishBadge.vue';
+import PageHeader from '@/components/PageHeader.vue';
+import { Skeleton } from '@/components/ui/skeleton';
+import { skeletonRows, useServerQuery } from '@/composables/useServerQuery';
+import { describeChange, formatDateTime, timeAgo } from '@/lib/activity';
 import { index as auditLogs } from '@/routes/audit-logs';
-import type { AuditLog, AuditLogChange, Paginated } from '@/types/scoring';
+import type { AuditLog, Paginated } from '@/types/scoring';
 
 const props = defineProps<{
     logs: Paginated<AuditLog>;
@@ -23,26 +27,18 @@ const props = defineProps<{
 
 defineOptions({
     layout: {
-        breadcrumbs: [{ title: 'Audit Logs', href: auditLogs() }],
+        breadcrumbs: [{ title: 'Audit log', href: auditLogs() }],
     },
 });
 
-type Severity = 'success' | 'info' | 'danger';
-
-const actionSeverity: Record<AuditLogChange['action'], Severity> = {
-    created: 'success',
-    updated: 'info',
-    deleted: 'danger',
-};
-
 const actionOptions = [
-    { label: 'All actions', value: null },
-    { label: 'Created', value: 'created' },
-    { label: 'Updated', value: 'updated' },
-    { label: 'Deleted', value: 'deleted' },
+    { label: 'All changes', value: null },
+    { label: 'Added', value: 'created' },
+    { label: 'Edited', value: 'updated' },
+    { label: 'Removed', value: 'deleted' },
 ];
 
-const { filters, apply, debouncedApply } = useServerQuery(
+const { filters, loading, apply, debouncedApply } = useServerQuery(
     auditLogs().url,
     {
         search: props.filters.search,
@@ -51,6 +47,12 @@ const { filters, apply, debouncedApply } = useServerQuery(
         page: props.logs.current_page,
     },
     { only: ['logs', 'filters'] },
+);
+
+const rows = computed(() =>
+    loading.value
+        ? skeletonRows(props.logs.data.length, props.logs.per_page)
+        : props.logs.data,
 );
 
 function onPage(event: DataTablePageEvent): void {
@@ -69,68 +71,25 @@ function onFilterChange(): void {
     apply();
 }
 
-function severityFor(action: AuditLogChange['action']): Severity {
-    return actionSeverity[action] ?? 'info';
-}
-
-function describeScore(
-    entry: { score: number; is_burst: boolean } | null,
-): string {
-    if (!entry) {
-        return 'n/a';
-    }
-
-    return entry.is_burst ? `${entry.score} (burst)` : `${entry.score}`;
-}
-
-function describe(change: AuditLogChange): string {
-    const player = change.player_name ?? `player #${change.player_id}`;
-
-    switch (change.action) {
-        case 'created':
-            return `Added a score of ${describeScore(change.new)} for ${player}.`;
-        case 'updated':
-            return `Updated ${player}'s score from ${describeScore(change.old)} to ${describeScore(change.new)}.`;
-        case 'deleted':
-            return `Removed a score of ${describeScore(change.old)} for ${player}.`;
-        default:
-            return `Modified a score for ${player}.`;
-    }
-}
-
-function formatDateTime(value: string | null): string {
-    if (!value) {
-        return '—';
-    }
-
-    return new Date(value).toLocaleString(undefined, {
-        month: 'short',
-        day: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit',
-    });
-}
+const hasFilters = computed(() => !!filters.search || !!filters.action);
 </script>
 
 <template>
-    <Head title="Audit Logs" />
+    <Head title="Audit log" />
 
-    <div class="flex flex-col gap-4 p-4 sm:p-6">
-        <div>
-            <h1 class="text-xl font-semibold">Audit Logs</h1>
-            <p class="text-surface-500 dark:text-surface-400 text-sm">
-                Recent score changes made by the tournament admins.
-            </p>
-        </div>
+    <div class="flex flex-col gap-6 p-4 sm:p-6">
+        <PageHeader
+            title="Audit log"
+            description="Every score that was added or changed, and who did it."
+        />
 
-        <!-- Filters -->
         <div class="flex flex-col gap-3 sm:flex-row sm:items-center">
             <IconField class="w-full sm:max-w-xs">
                 <InputIcon class="pi pi-search" />
                 <InputText
                     v-model="filters.search"
-                    placeholder="Search by player or admin…"
-                    class="w-full"
+                    placeholder="Search by player or admin"
+                    aria-label="Search the audit log"
                     fluid
                     @input="onSearch"
                 />
@@ -141,54 +100,72 @@ function formatDateTime(value: string | null): string {
                 :options="actionOptions"
                 option-label="label"
                 option-value="value"
-                placeholder="Action"
-                class="w-full sm:w-48"
+                aria-label="Filter by change type"
+                class="w-full sm:w-44"
                 @change="onFilterChange"
             />
         </div>
 
         <DataTable
-            :value="logs.data"
+            :value="rows"
             data-key="id"
+            :aria-busy="loading"
             lazy
             paginator
             :rows="logs.per_page"
             :first="(logs.current_page - 1) * logs.per_page"
             :total-records="logs.total"
             :rows-per-page-options="[20, 50, 100]"
-            striped-rows
-            class="border-surface-200 dark:border-surface-700 overflow-hidden rounded-lg border"
+            row-hover
+            class="overflow-hidden rounded-lg border border-border"
             @page="onPage"
         >
             <template #empty>
-                <div class="text-surface-500 py-8 text-center">
-                    No activity matches your filters.
+                <div class="py-10 text-center text-sm text-muted-foreground">
+                    {{
+                        hasFilters
+                            ? 'No changes match these filters.'
+                            : 'No changes recorded yet.'
+                    }}
                 </div>
             </template>
 
-            <Column header="When" :style="{ width: '11rem' }">
-                <template #body="{ data }">{{
-                    formatDateTime(data.created_at)
-                }}</template>
-            </Column>
-            <Column
-                field="user_name"
-                header="Admin"
-                :style="{ width: '9rem' }"
-            />
-            <Column header="Action" :style="{ width: '7rem' }">
+            <Column header="Change">
                 <template #body="{ data }">
-                    <Tag
-                        :value="data.changes.action"
-                        :severity="severityFor(data.changes.action)"
-                        class="capitalize"
-                    />
+                    <div v-if="loading" class="flex flex-col gap-2 py-0.5">
+                        <Skeleton class="h-4 w-64 max-w-full" />
+                        <Skeleton class="h-5 w-20" />
+                    </div>
+                    <div v-else class="flex flex-col gap-1.5 py-0.5">
+                        <span>{{ describeChange(data.changes) }}</span>
+                        <FinishBadge
+                            v-if="data.changes.new"
+                            class="self-start"
+                            :score="data.changes.new.score"
+                            :is-burst="data.changes.new.is_burst"
+                        />
+                    </div>
                 </template>
             </Column>
-            <Column header="Details">
-                <template #body="{ data }">{{
-                    describe(data.changes)
-                }}</template>
+            <Column field="user_name" header="By" :style="{ width: '10rem' }">
+                <template #body="{ data }">
+                    <Skeleton v-if="loading" class="h-4 w-20" />
+                    <span v-else class="text-muted-foreground">{{
+                        data.user_name
+                    }}</span>
+                </template>
+            </Column>
+            <Column header="When" :style="{ width: '9rem' }">
+                <template #body="{ data }">
+                    <Skeleton v-if="loading" class="h-4 w-16" />
+                    <time
+                        v-else
+                        class="whitespace-nowrap text-muted-foreground"
+                        :datetime="data.created_at ?? undefined"
+                        :title="formatDateTime(data.created_at)"
+                        >{{ timeAgo(data.created_at) }}</time
+                    >
+                </template>
             </Column>
         </DataTable>
     </div>

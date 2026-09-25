@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\ActionLogController;
+use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\PlayerController;
 use App\Http\Controllers\ScoreController;
 use App\Http\Controllers\StandingsController;
@@ -12,7 +13,7 @@ Route::inertia('/', 'Welcome')->name('home');
 Route::get('standings', [StandingsController::class, 'index'])->name('standings.index');
 
 Route::middleware(['auth', 'verified'])->group(function () {
-    Route::inertia('dashboard', 'Dashboard')->name('dashboard');
+    Route::get('dashboard', DashboardController::class)->name('dashboard');
 
     // Players CRUD.
     Route::get('players', [PlayerController::class, 'index'])->name('players.index');

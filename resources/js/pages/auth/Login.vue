@@ -11,8 +11,8 @@ import { request } from '@/routes/password';
 
 defineOptions({
     layout: {
-        title: 'Log in to your account',
-        description: 'Enter your email and password below to log in',
+        title: 'Sign in',
+        description: 'For league admins. Use the account you were given.',
     },
 });
 
@@ -35,18 +35,18 @@ function submit(): void {
 </script>
 
 <template>
-    <Head title="Log in" />
+    <Head title="Sign in" />
 
     <div
         v-if="status"
-        class="mb-4 text-center text-sm font-medium text-green-600"
+        class="mb-4 rounded-md border border-border px-3 py-2 text-sm text-muted-foreground"
     >
         {{ status }}
     </div>
 
-    <form class="flex flex-col gap-6" @submit.prevent="submit">
+    <form class="flex flex-col gap-5" @submit.prevent="submit">
         <div class="flex flex-col gap-2">
-            <label for="email" class="text-sm font-medium">Email address</label>
+            <label for="email" class="text-sm font-medium">Email</label>
             <InputText
                 id="email"
                 v-model="form.email"
@@ -54,7 +54,7 @@ function submit(): void {
                 required
                 autofocus
                 autocomplete="email"
-                placeholder="email@example.com"
+                placeholder="you@dbbl.com"
                 :invalid="!!form.errors.email"
                 fluid
             />
@@ -76,9 +76,9 @@ function submit(): void {
                 <TextLink
                     v-if="canResetPassword"
                     :href="request()"
-                    class="text-sm"
+                    class="text-xs text-muted-foreground"
                 >
-                    Forgot your password?
+                    Forgot password?
                 </TextLink>
             </div>
             <Password
@@ -88,7 +88,6 @@ function submit(): void {
                 toggle-mask
                 required
                 autocomplete="current-password"
-                placeholder="Password"
                 :invalid="!!form.errors.password"
                 fluid
                 :input-props="{ name: 'password' }"
@@ -105,12 +104,14 @@ function submit(): void {
 
         <div class="flex items-center gap-2">
             <Checkbox input-id="remember" v-model="form.remember" binary />
-            <label for="remember" class="text-sm">Remember me</label>
+            <label for="remember" class="text-sm text-muted-foreground"
+                >Keep me signed in</label
+            >
         </div>
 
         <Button
             type="submit"
-            label="Log in"
+            label="Sign in"
             class="w-full"
             :loading="form.processing"
             data-test="login-button"

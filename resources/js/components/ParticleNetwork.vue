@@ -38,8 +38,17 @@ const LINK_DISTANCE = 140;
 const MOUSE_DISTANCE = 190;
 const PUSH_STRENGTH = 28;
 
+// Neutral zinc tone that follows the active color scheme.
+let rgb = '161, 161, 170';
+
+function syncPalette(): void {
+    rgb = document.documentElement.classList.contains('dark')
+        ? '161, 161, 170'
+        : '82, 82, 91';
+}
+
 function lineColor(alpha: number): string {
-    return `rgba(129, 140, 248, ${alpha})`;
+    return `rgba(${rgb}, ${alpha})`;
 }
 
 function initNodes(): void {
@@ -143,13 +152,14 @@ function render(): void {
     }
 
     ctx.clearRect(0, 0, width, height);
+    syncPalette();
 
     for (const node of nodes) {
         updateNode(node);
 
         ctx.beginPath();
-        ctx.arc(node.px, node.py, 2, 0, Math.PI * 2);
-        ctx.fillStyle = lineColor(0.55);
+        ctx.arc(node.px, node.py, 1.6, 0, Math.PI * 2);
+        ctx.fillStyle = lineColor(0.45);
         ctx.fill();
     }
 

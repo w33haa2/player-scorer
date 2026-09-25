@@ -1,5 +1,4 @@
 import { createInertiaApp } from '@inertiajs/vue3';
-import Aura from '@primeuix/themes/aura';
 import PrimeVue from 'primevue/config';
 import ConfirmationService from 'primevue/confirmationservice';
 import ToastService from 'primevue/toastservice';
@@ -10,9 +9,9 @@ import AuthLayout from '@/layouts/AuthLayout.vue';
 import PublicLayout from '@/layouts/PublicLayout.vue';
 import SettingsLayout from '@/layouts/settings/Layout.vue';
 import { initializeFlashToast } from '@/lib/flashToast';
+import { DbblPreset } from '@/lib/theme';
 
 import 'primeicons/primeicons.css';
-import 'primeflex/primeflex.css';
 
 const appName = import.meta.env.VITE_APP_NAME || 'Laravel';
 
@@ -35,7 +34,7 @@ createInertiaApp({
     withApp(app) {
         app.use(PrimeVue, {
             theme: {
-                preset: Aura,
+                preset: DbblPreset,
                 options: {
                     darkModeSelector: '.dark',
                     cssLayer: {

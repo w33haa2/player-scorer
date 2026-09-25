@@ -36,6 +36,58 @@ export type AwardWinner = {
     value: number;
 };
 
+export type AwardLeaderboard = {
+    key: string;
+    name: string;
+    description: string;
+    metric: string;
+    leaders: AwardWinner[];
+};
+
+export type LeaderboardRow = {
+    player_id: number;
+    player_name: string;
+    rank: number;
+    battles: number;
+    points: number;
+    spin: number;
+    over: number;
+    burst: number;
+    extreme: number;
+};
+
+export type PlayerPlacement = {
+    key: string;
+    name: string;
+    position: number;
+    value: number;
+    metric: string;
+};
+
+export type PlayerProfile = {
+    player_id: number;
+    player_name: string;
+    date_started: string | null;
+    rank: number | null;
+    total_players: number;
+    battles: number;
+    points: number;
+    average: number;
+    breakdown: {
+        spin: number;
+        over: number;
+        burst: number;
+        extreme: number;
+    };
+    placements: PlayerPlacement[];
+    recent: {
+        id: number;
+        score: number;
+        is_burst: boolean;
+        created_at: string | null;
+    }[];
+};
+
 export type Award = {
     key: string;
     name: string;

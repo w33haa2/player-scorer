@@ -11,10 +11,14 @@ import IconField from 'primevue/iconfield';
 import InputIcon from 'primevue/inputicon';
 import InputText from 'primevue/inputtext';
 import Select from 'primevue/select';
-import Tag from 'primevue/tag';
-import { ref } from 'vue';
+import { computed, ref } from 'vue';
+import FinishBadge from '@/components/FinishBadge.vue';
+import PageHeader from '@/components/PageHeader.vue';
 import ScoreEditDialog from '@/components/scoring/ScoreEditDialog.vue';
-import { useServerQuery } from '@/composables/useServerQuery';
+import { Skeleton } from '@/components/ui/skeleton';
+import { skeletonRows, useServerQuery } from '@/composables/useServerQuery';
+import { formatDateTime } from '@/lib/activity';
+import type { FinishKey } from '@/lib/finishTypes';
 import { index as scoresIndex } from '@/routes/scores';
 import type { Paginated, Score } from '@/types/scoring';
 
@@ -36,20 +40,7 @@ defineOptions({
     },
 });
 
-const scoreOptions = [
-    { label: 'All scores', value: null },
-    { label: '1 · Spin finish', value: 1 },
-    { label: '2 · Over / Burst finish', value: 2 },
-    { label: '3 · Extreme finish', value: 3 },
-];
-
-const burstOptions = [
-    { label: 'Any finish', value: null },
-    { label: 'Burst only', value: '1' },
-    { label: 'Non-burst', value: '0' },
-];
-
-const { filters, apply, debouncedApply } = useServerQuery(
+const { filters, loading, apply, debouncedApply } = useServerQuery(
     scoresIndex().url,
     {
         search: props.filters.search,
@@ -62,6 +53,57 @@ const { filters, apply, debouncedApply } = useServerQuery(
     },
     { only: ['scores', 'filters'] },
 );
+
+const rows = computed(() =>
+    loading.value
+        ? skeletonRows(props.scores.data.length, props.scores.per_page)
+        : props.scores.data,
+);
+
+const finishOptions: { label: string; value: FinishKey | null }[] = [
+    { label: 'All finishes', value: null },
+    { label: 'Spin', value: 'spin' },
+    { label: 'Over', value: 'over' },
+    { label: 'Burst', value: 'burst' },
+    { label: 'Extreme', value: 'extreme' },
+];
+
+// One "Finish" filter in the UI, mapped onto the score / is_burst params.
+const finishFilter = computed<FinishKey | null>({
+    get() {
+        if (filters.is_burst === '1') {
+            return 'burst';
+        }
+
+        switch (filters.score) {
+            case 1:
+                return 'spin';
+            case 2:
+                return 'over';
+            case 3:
+                return 'extreme';
+            default:
+                return null;
+        }
+    },
+    set(value) {
+        const map: Record<
+            FinishKey,
+            { score: number | null; is_burst: string | null }
+        > = {
+            spin: { score: 1, is_burst: null },
+            over: { score: 2, is_burst: '0' },
+            burst: { score: null, is_burst: '1' },
+            extreme: { score: 3, is_burst: null },
+        };
+        const next = value ? map[value] : { score: null, is_burst: null };
+
+        filters.score = next.score;
+        filters.is_burst = next.is_burst;
+        filters.page = 1;
+        apply();
+    },
+});
 
 function onPage(event: DataTablePageEvent): void {
     filters.page = event.page + 1;
@@ -81,10 +123,9 @@ function onSearch(): void {
     debouncedApply();
 }
 
-function onFilterChange(): void {
-    filters.page = 1;
-    apply();
-}
+const hasFilters = computed(
+    () => !!filters.search || finishFilter.value !== null,
+);
 
 const editDialogVisible = ref(false);
 const editingScore = ref<Score | null>(null);
@@ -93,71 +134,43 @@ function openEdit(score: Score): void {
     editingScore.value = score;
     editDialogVisible.value = true;
 }
-
-function formatDateTime(value: string | null): string {
-    if (!value) {
-        return '—';
-    }
-
-    return new Date(value).toLocaleString(undefined, {
-        month: 'short',
-        day: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit',
-    });
-}
 </script>
 
 <template>
     <Head title="Scores" />
 
-    <div class="flex flex-col gap-4 p-4 sm:p-6">
-        <div>
-            <h1 class="text-xl font-semibold">Scores</h1>
-            <p class="text-surface-500 dark:text-surface-400 text-sm">
-                Correct any mistyped scores. Entries cannot be deleted here.
-            </p>
-        </div>
+    <div class="flex flex-col gap-6 p-4 sm:p-6">
+        <PageHeader
+            title="Scores"
+            description="Every recorded battle. Use this page to fix a mistake. Scores can't be deleted."
+        />
 
-        <!-- Filters -->
-        <div
-            class="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center"
-        >
+        <div class="flex flex-col gap-3 sm:flex-row sm:items-center">
             <IconField class="w-full sm:max-w-xs">
                 <InputIcon class="pi pi-search" />
                 <InputText
                     v-model="filters.search"
-                    placeholder="Search by player…"
-                    class="w-full"
+                    placeholder="Search by player"
+                    aria-label="Search scores by player"
                     fluid
                     @input="onSearch"
                 />
             </IconField>
 
             <Select
-                v-model="filters.score"
-                :options="scoreOptions"
+                v-model="finishFilter"
+                :options="finishOptions"
                 option-label="label"
                 option-value="value"
-                placeholder="Score"
-                class="w-full sm:w-52"
-                @change="onFilterChange"
-            />
-
-            <Select
-                v-model="filters.is_burst"
-                :options="burstOptions"
-                option-label="label"
-                option-value="value"
-                placeholder="Burst"
+                aria-label="Filter by finish"
                 class="w-full sm:w-44"
-                @change="onFilterChange"
             />
         </div>
 
         <DataTable
-            :value="scores.data"
+            :value="rows"
             data-key="id"
+            :aria-busy="loading"
             lazy
             paginator
             :rows="scores.per_page"
@@ -166,53 +179,62 @@ function formatDateTime(value: string | null): string {
             :rows-per-page-options="[15, 30, 50]"
             :sort-field="filters.sort"
             :sort-order="filters.direction === 'asc' ? 1 : -1"
-            striped-rows
-            class="border-surface-200 dark:border-surface-700 overflow-hidden rounded-lg border"
+            row-hover
+            class="overflow-hidden rounded-lg border border-border"
             @page="onPage"
             @sort="onSort"
         >
             <template #empty>
-                <div class="text-surface-500 py-8 text-center">
-                    No scores match your filters.
+                <div class="py-10 text-center text-sm text-muted-foreground">
+                    {{
+                        hasFilters
+                            ? 'No scores match these filters.'
+                            : 'No scores recorded yet.'
+                    }}
                 </div>
             </template>
 
-            <Column field="player_name" header="Player" sortable />
-            <Column field="score" header="Score" sortable>
+            <Column field="player_name" header="Player" sortable>
                 <template #body="{ data }">
-                    <span class="font-semibold">{{ data.score }}</span>
+                    <Skeleton v-if="loading" class="h-4 w-36" />
+                    <span v-else class="font-medium">{{
+                        data.player_name
+                    }}</span>
                 </template>
             </Column>
-            <Column field="is_burst" header="Burst finish" sortable>
+            <Column field="score" header="Finish" sortable>
                 <template #body="{ data }">
-                    <Tag
-                        v-if="data.is_burst"
-                        value="Burst"
-                        severity="warn"
-                        icon="pi pi-bolt"
+                    <Skeleton v-if="loading" class="h-5 w-20" />
+                    <FinishBadge
+                        v-else
+                        :score="data.score"
+                        :is-burst="data.is_burst"
                     />
-                    <span v-else class="text-surface-400">—</span>
                 </template>
             </Column>
-            <Column header="Recorded" field="created_at" sortable>
-                <template #body="{ data }">{{
-                    formatDateTime(data.created_at)
-                }}</template>
-            </Column>
-            <Column
-                header="Actions"
-                :style="{ width: '5rem' }"
-                :body-style="{ textAlign: 'center' }"
-            >
+            <Column field="created_at" header="Recorded" sortable>
                 <template #body="{ data }">
-                    <Button
-                        icon="pi pi-pencil"
-                        text
-                        rounded
-                        severity="secondary"
-                        aria-label="Update score"
-                        @click="openEdit(data)"
-                    />
+                    <Skeleton v-if="loading" class="h-4 w-28" />
+                    <span v-else class="text-muted-foreground">{{
+                        formatDateTime(data.created_at)
+                    }}</span>
+                </template>
+            </Column>
+            <Column :style="{ width: '6rem' }">
+                <template #body="{ data }">
+                    <div v-if="loading" class="flex justify-end">
+                        <Skeleton class="h-7 w-12" />
+                    </div>
+                    <div v-else class="flex justify-end">
+                        <Button
+                            label="Edit"
+                            size="small"
+                            severity="secondary"
+                            text
+                            :aria-label="`Edit score for ${data.player_name}`"
+                            @click="openEdit(data)"
+                        />
+                    </div>
                 </template>
             </Column>
         </DataTable>

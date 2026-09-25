@@ -77,12 +77,12 @@ function submit(): void {
     <Dialog
         v-model:visible="visible"
         modal
-        :header="player ? 'Edit Player' : 'Add Player'"
-        :style="{ width: '95vw', maxWidth: '30rem' }"
+        :header="player ? 'Edit player' : 'Add player'"
+        :style="{ width: '95vw', maxWidth: '28rem' }"
         :draggable="false"
         dismissable-mask
     >
-        <form class="flex flex-col gap-4" @submit.prevent="submit">
+        <form class="flex flex-col gap-5" @submit.prevent="submit">
             <div class="flex flex-col gap-2">
                 <label for="player-name" class="text-sm font-medium"
                     >Name</label
@@ -91,8 +91,8 @@ function submit(): void {
                     id="player-name"
                     v-model="form.name"
                     autofocus
+                    fluid
                     :invalid="!!form.errors.name"
-                    placeholder="Player name"
                 />
                 <Message
                     v-if="form.errors.name"
@@ -106,7 +106,10 @@ function submit(): void {
 
             <div class="flex flex-col gap-2">
                 <label for="player-date" class="text-sm font-medium"
-                    >Date started (optional)</label
+                    >Date started
+                    <span class="font-normal text-muted-foreground"
+                        >(optional)</span
+                    ></label
                 >
                 <DatePicker
                     id="player-date"
@@ -115,8 +118,10 @@ function submit(): void {
                     show-icon
                     fluid
                     :invalid="!!form.errors.date_started"
-                    placeholder="Select a date"
                 />
+                <p class="text-xs text-muted-foreground">
+                    Used to decide Rookie of the Season.
+                </p>
                 <Message
                     v-if="form.errors.date_started"
                     severity="error"
@@ -127,7 +132,7 @@ function submit(): void {
                 </Message>
             </div>
 
-            <div class="mt-2 flex justify-end gap-2">
+            <div class="flex justify-end gap-2 border-t border-border pt-4">
                 <Button
                     type="button"
                     label="Cancel"
@@ -137,7 +142,7 @@ function submit(): void {
                 />
                 <Button
                     type="submit"
-                    :label="player ? 'Save' : 'Add Player'"
+                    :label="player ? 'Save changes' : 'Add player'"
                     :loading="form.processing"
                 />
             </div>
