@@ -230,12 +230,13 @@ This is a **Beyblade X** tournament, where each finish type is worth points: **S
 | **Finals MVP**           | Highest **total accumulated score**.                                      |
 | **Rookie of the Season** | Best newcomer in the scene — the player with the **most recent `date_started`** who has scored points. If no player has a start date, the award is **not calculated**. |
 | **Stamina King**         | Most **spin finishes** (`player_scores` entries scoring exactly **1**).   |
-| **Over Lord**            | Most **over finishes** (`player_scores` entries scoring exactly **2**).   |
+| **Over Lord**            | Most **over finishes** (`player_scores` entries scoring **2 without a burst finish**). |
 | **Extreme Champion**     | Most **extreme finishes** (`player_scores` entries scoring exactly **3**).|
 | **Burst God**            | Most **burst finishes** (`player_scores` entries scoring **2 with a burst finish**). |
 
-Ties are broken deterministically by lowest player id. Note that **Over Lord** counts every
-entry scoring 2 (including burst finishes), while **Burst God** is the burst-only subset.
+Ties are broken deterministically by lowest player id. Over and Burst finishes are both worth 2
+but are separate finish types (the `is_burst` flag), so **Over Lord** and **Burst God** never
+count the same entry.
 
 ---
 

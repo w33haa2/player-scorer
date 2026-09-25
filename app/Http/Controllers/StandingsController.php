@@ -20,6 +20,10 @@ class StandingsController extends Controller
      * `?player={id}` opens that player's stat card (shareable link). Props are
      * lazy closures, memoized with once(), so a partial reload for one player
      * doesn't compute the whole leaderboard.
+     *
+     * The standings data is deferred so the page paints with skeletons first.
+     * `selectedPlayer` and `seo` stay in the initial response: deep links open
+     * straight away and link previews get real metadata.
      */
     public function index(Request $request, StandingsService $standings): Response
     {
@@ -39,9 +43,9 @@ class StandingsController extends Controller
         });
 
         return Inertia::render('standings/Index', [
-            'awards' => $awards,
-            'leaderboard' => fn (): array => $standings->playerLeaderboard(),
-            'stats' => $stats,
+            'awards' => Inertia::defer($awards),
+            'leaderboard' => Inertia::defer(fn (): array => $standings->playerLeaderboard()),
+            'stats' => Inertia::defer($stats),
             'selectedPlayer' => $profile,
             'seo' => fn (): array => $this->seo($awards(), $stats(), $profile()),
         ]);

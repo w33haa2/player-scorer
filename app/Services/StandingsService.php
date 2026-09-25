@@ -70,7 +70,8 @@ class StandingsService
                 name: 'Over Lord',
                 description: 'Most over finishes by a player.',
                 metric: 'over finishes',
-                leaders: $this->topByCount(fn (Builder $query) => $query->where('score', 2), $limit),
+                // Bursts also score 2, but they're a separate finish (Burst God).
+                leaders: $this->topByCount(fn (Builder $query) => $query->where('score', 2)->where('is_burst', false), $limit),
             ),
             $this->award(
                 key: 'extreme_champion',

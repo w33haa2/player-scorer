@@ -71,6 +71,22 @@ test('extreme champion has the most entries scoring 3', function () {
         ->and(award('extreme_champion')['winner']['value'])->toBe(4);
 });
 
+test('over lord counts over finishes only, not bursts', function () {
+    $overs = Player::factory()->create();
+    $bursts = Player::factory()->create();
+
+    PlayerScore::factory()->for($overs)->score(2)->count(2)->create();
+    // Bursts also score 2, but they belong to Burst God.
+    PlayerScore::factory()->for($bursts)->burst()->count(5)->create();
+
+    $overLord = collect(app(StandingsService::class)->leaderboards(3))
+        ->firstWhere('key', 'over_lord');
+
+    expect($overLord['leaders'])->toHaveCount(1)
+        ->and($overLord['leaders'][0]['player_id'])->toBe($overs->id)
+        ->and($overLord['leaders'][0]['value'])->toBe(2);
+});
+
 test('burst god has the most burst-finish entries', function () {
     $winner = Player::factory()->create();
     $other = Player::factory()->create();
@@ -168,17 +184,38 @@ test('a player without battles is not ranked', function () {
         ->and($profile['recent'])->toBe([]);
 });
 
-test('the standings page includes the leaderboard and no player by default', function () {
+test('the standings page defers the leaderboard and has no player by default', function () {
     PlayerScore::factory()->score(2)->create();
 
     $this->get(route('standings.index'))
         ->assertOk()
         ->assertInertia(fn ($page) => $page
             ->component('standings/Index')
-            ->has('awards', 6)
-            ->has('awards.0.leaders')
-            ->has('leaderboard', 1)
-            ->where('selectedPlayer', null));
+            ->missing('awards')
+            ->missing('leaderboard')
+            ->missing('stats')
+            ->where('selectedPlayer', null)
+            ->loadDeferredProps(fn ($reload) => $reload
+                ->has('awards', 6)
+                ->has('awards.0.leaders')
+                ->has('leaderboard', 1)
+                ->where('stats', ['players' => 1, 'scores' => 1])));
+});
+
+test('refreshing reloads only the standings data', function () {
+    PlayerScore::factory()->score(3)->create();
+
+    $this->get(route('standings.index'), [
+        'X-Inertia' => 'true',
+        'X-Inertia-Version' => (string) app(HandleInertiaRequests::class)->version(request()),
+        'X-Inertia-Partial-Component' => 'standings/Index',
+        'X-Inertia-Partial-Data' => 'awards,leaderboard,stats',
+    ])
+        ->assertOk()
+        ->assertJsonCount(6, 'props.awards')
+        ->assertJsonPath('props.leaderboard.0.points', 3)
+        ->assertJsonPath('props.stats', ['players' => 1, 'scores' => 1])
+        ->assertJsonMissingPath('props.selectedPlayer');
 });
 
 test('a deep link opens a player stat card for guests', function () {
@@ -188,6 +225,8 @@ test('a deep link opens a player stat card for guests', function () {
     $this->get(route('standings.index', ['player' => $player->id]))
         ->assertOk()
         ->assertInertia(fn ($page) => $page
+            // The stat card isn't deferred, so it opens without a second request.
+            ->missing('leaderboard')
             ->where('selectedPlayer.player_name', 'Linked')
             ->where('selectedPlayer.points', 3)
             ->has('selectedPlayer.recent', 1));

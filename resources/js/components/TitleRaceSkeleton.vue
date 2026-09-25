@@ -13,11 +13,11 @@ import { Skeleton } from '@/components/ui/skeleton';
                 <Skeleton class="h-4 w-32" />
                 <Skeleton class="mt-2 h-3 w-48 max-w-full" />
             </div>
-            <div class="flex flex-col gap-3 px-4 py-3.5">
+            <div class="px-4 py-2">
                 <div
                     v-for="row in 3"
                     :key="row"
-                    class="flex items-center gap-3"
+                    class="flex h-8 items-center gap-3"
                 >
                     <Skeleton class="h-3 w-3" />
                     <Skeleton

@@ -1,8 +1,10 @@
 <script setup lang="ts">
 import { Head, router } from '@inertiajs/vue3';
 import Button from 'primevue/button';
-import { computed, onMounted, ref, watch } from 'vue';
+import { computed, ref, watch } from 'vue';
 import PlayerStatsDialog from '@/components/standings/PlayerStatsDialog.vue';
+import TitleRaceSkeleton from '@/components/TitleRaceSkeleton.vue';
+import { Skeleton } from '@/components/ui/skeleton';
 import { finishTypes } from '@/lib/finishTypes';
 import { index as standings } from '@/routes/standings';
 import type {
@@ -13,10 +15,11 @@ import type {
 
 defineOptions({ inheritAttrs: false });
 
+// Deferred props: undefined until the follow-up request resolves them.
 const props = defineProps<{
-    awards: AwardLeaderboard[];
-    leaderboard: LeaderboardRow[];
-    stats: {
+    awards?: AwardLeaderboard[];
+    leaderboard?: LeaderboardRow[];
+    stats?: {
         players: number;
         scores: number;
     };
@@ -27,13 +30,27 @@ const props = defineProps<{
 /* Refresh                                                             */
 /* ------------------------------------------------------------------ */
 
+const DEFERRED_KEYS = ['awards', 'leaderboard', 'stats'];
+
+// Keep skeletons up for a moment so a fast refresh doesn't flicker.
+const MIN_SKELETON_MS = 350;
+
+// Rows to sketch before the leaderboard has loaded for the first time.
+const INITIAL_SKELETON_ROWS = 8;
+
 const refreshing = ref(false);
-// Set on the client only, so SSR and hydration agree.
 const updatedAt = ref<Date | null>(null);
 
-onMounted(() => {
-    updatedAt.value = new Date();
-});
+// Stamp whenever fresh data lands (initial deferred load and refreshes).
+watch(
+    () => props.leaderboard,
+    (value) => {
+        if (value) {
+            updatedAt.value = new Date();
+        }
+    },
+    { immediate: true },
+);
 
 const updatedLabel = computed(() =>
     updatedAt.value
@@ -45,11 +62,27 @@ const updatedLabel = computed(() =>
 );
 
 function refresh(): void {
+    if (refreshing.value) {
+        return;
+    }
+
+    const startedAt = Date.now();
+
     router.reload({
-        only: ['awards', 'leaderboard', 'stats'],
-        onStart: () => (refreshing.value = true),
-        onSuccess: () => (updatedAt.value = new Date()),
-        onFinish: () => (refreshing.value = false),
+        only: DEFERRED_KEYS,
+        onStart: () => {
+            refreshing.value = true;
+        },
+        onFinish: () => {
+            const remaining = Math.max(
+                0,
+                MIN_SKELETON_MS - (Date.now() - startedAt),
+            );
+
+            setTimeout(() => {
+                refreshing.value = false;
+            }, remaining);
+        },
     });
 }
 
@@ -87,7 +120,7 @@ const sortKey = ref<SortKey>('points');
 // Sorted by the chosen stat, with competition ranking (ties share a rank).
 const rows = computed(() => {
     const key = sortKey.value;
-    const sorted = [...props.leaderboard].sort(
+    const sorted = [...(props.leaderboard ?? [])].sort(
         (a, b) =>
             b[key] - a[key] ||
             b.points - a.points ||
@@ -106,6 +139,11 @@ const rows = computed(() => {
         return { ...row, position };
     });
 });
+
+// Match the current row count on refresh so the page height doesn't jump.
+const skeletonRowCount = computed(
+    () => props.leaderboard?.length || INITIAL_SKELETON_ROWS,
+);
 
 function ariaSort(key: SortKey): 'descending' | 'none' {
     return sortKey.value === key ? 'descending' : 'none';
@@ -192,11 +230,20 @@ function onDialogHide(): void {
         >
             <div>
                 <h1 class="text-3xl font-semibold tracking-tight">Standings</h1>
-                <p class="mt-2 max-w-lg text-sm text-muted-foreground">
-                    Season leaderboard · {{ plural(stats.players, 'player') }},
-                    {{ plural(stats.scores, 'battle') }}. Select a player to see
-                    their stats.
-                </p>
+                <!-- A div, not a <p>: the inline skeleton renders a <div>. -->
+                <div class="mt-2 max-w-lg text-sm text-muted-foreground">
+                    Season leaderboard ·
+                    <template v-if="stats && !refreshing"
+                        >{{ plural(stats.players, 'player') }},
+                        {{ plural(stats.scores, 'battle') }}.</template
+                    >
+                    <Skeleton
+                        v-else
+                        class="inline-block h-3.5 w-40 align-middle"
+                        aria-hidden="true"
+                    />
+                    Select a player to see their stats.
+                </div>
             </div>
             <div class="flex items-center gap-3">
                 <span
@@ -218,9 +265,13 @@ function onDialogHide(): void {
         </header>
 
         <!-- Title race -->
-        <section>
+        <section :aria-busy="refreshing || !awards">
             <h2 class="mb-3 text-sm font-medium">Title race</h2>
-            <div class="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
+            <TitleRaceSkeleton
+                v-if="refreshing || !awards"
+                class="lg:grid-cols-3"
+            />
+            <div v-else class="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
                 <article
                     v-for="award in awards"
                     :key="award.key"
@@ -272,7 +323,7 @@ function onDialogHide(): void {
         </section>
 
         <!-- Leaderboard -->
-        <section>
+        <section :aria-busy="refreshing || !leaderboard">
             <div class="mb-3 flex items-baseline justify-between gap-3">
                 <h2 class="text-sm font-medium">Leaderboard</h2>
                 <p class="text-xs text-muted-foreground">
@@ -339,7 +390,33 @@ function onDialogHide(): void {
                             </th>
                         </tr>
                     </thead>
-                    <tbody class="divide-y divide-border">
+                    <tbody
+                        v-if="refreshing || !leaderboard"
+                        class="divide-y divide-border"
+                        aria-hidden="true"
+                    >
+                        <!-- h-11 matches a real row, so the swap doesn't shift. -->
+                        <tr v-for="n in skeletonRowCount" :key="n" class="h-11">
+                            <td class="px-4">
+                                <Skeleton class="h-3 w-4" />
+                            </td>
+                            <td class="max-w-0 px-4">
+                                <Skeleton
+                                    class="h-3.5 w-full"
+                                    :class="n % 2 ? 'max-w-40' : 'max-w-28'"
+                                />
+                            </td>
+                            <td
+                                v-for="column in columns"
+                                :key="column.key"
+                                class="px-3"
+                                :class="column.visibility"
+                            >
+                                <Skeleton class="ml-auto h-3.5 w-6" />
+                            </td>
+                        </tr>
+                    </tbody>
+                    <tbody v-else class="divide-y divide-border">
                         <tr
                             v-for="row in rows"
                             :key="row.player_id"
