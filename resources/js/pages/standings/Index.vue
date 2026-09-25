@@ -318,7 +318,7 @@ function onDialogHide(): void {
                                 <BladerName
                                     :name="leader.player_name"
                                     :team="leader.team"
-                                    class="min-w-0 flex-1 truncate"
+                                    class="min-w-0 flex-1 break-words"
                                     :class="index === 0 ? 'font-medium' : ''"
                                 />
                                 <span
@@ -361,9 +361,10 @@ function onDialogHide(): void {
                             >
                                 #
                             </th>
+                            <!-- The player column takes the spare width, so names are never cut off. -->
                             <th
                                 scope="col"
-                                class="px-4 py-2.5 text-left font-medium"
+                                class="w-full px-4 py-2.5 text-left font-medium"
                             >
                                 Player
                             </th>
@@ -371,7 +372,7 @@ function onDialogHide(): void {
                                 v-for="column in columns"
                                 :key="column.key"
                                 scope="col"
-                                class="px-3 py-2.5 text-right font-medium"
+                                class="w-24 px-3 py-2.5 text-right font-medium whitespace-nowrap"
                                 :class="column.visibility"
                                 :aria-sort="ariaSort(column.key)"
                             >
@@ -413,7 +414,7 @@ function onDialogHide(): void {
                             <td class="px-4">
                                 <Skeleton class="h-3 w-4" />
                             </td>
-                            <td class="max-w-0 px-4">
+                            <td class="px-4">
                                 <div class="flex items-center gap-2.5">
                                     <Skeleton
                                         class="size-5 shrink-0 rounded-sm"
@@ -453,12 +454,12 @@ function onDialogHide(): void {
                             >
                                 {{ row.position }}
                             </td>
-                            <td class="max-w-0 px-4 py-3">
+                            <td class="px-4 py-3">
                                 <div class="flex items-center gap-2.5">
                                     <TeamLogo :team="row.team" />
                                     <button
                                         type="button"
-                                        class="min-w-0 truncate text-left font-medium hover:underline focus-visible:underline focus-visible:outline-none"
+                                        class="text-left font-medium break-words hover:underline focus-visible:underline focus-visible:outline-none"
                                         @click.stop="openPlayer(row)"
                                     >
                                         <BladerName

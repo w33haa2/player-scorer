@@ -118,7 +118,7 @@ function ordinal(position: number): string {
                 <div class="min-w-0">
                     <h2
                         :id="titleId"
-                        class="truncate text-lg leading-snug font-semibold"
+                        class="text-lg leading-snug font-semibold break-words"
                     >
                         <BladerName :name="headerName" :team="headerTeam" />
                     </h2>

@@ -214,7 +214,7 @@ function refresh(): void {
                                         <BladerName
                                             :name="leader.player_name"
                                             :team="leader.team"
-                                            class="min-w-0 flex-1 truncate"
+                                            class="min-w-0 flex-1 break-words"
                                             :class="
                                                 rank === 0 ? 'font-medium' : ''
                                             "
