@@ -208,6 +208,10 @@ recorded score, Day 2 the next, and so on (`App\Services\TournamentDays`). The l
 what's being aggregated, shown as **Live** while it's today. Editing a score never moves it to
 another day. Player cards always show the whole tournament, split per day.
 
+The **Scores** and **Audit log** pages have the same day tabs (`?day=1`). Scores go by when they
+were recorded; audit entries by when the change was made, so a Day 2 correction of a Day 1
+score is listed under Day 2.
+
 ### Score rules
 
 - `score` must be an integer between **1 and 3** (never 0).

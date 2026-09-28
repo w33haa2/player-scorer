@@ -159,7 +159,6 @@ function selectDay(day: number | null): void {
         </PageHeader>
 
         <DaySwitcher
-            v-if="days.length"
             :days="days"
             :selected="day"
             :disabled="loadingDayData"

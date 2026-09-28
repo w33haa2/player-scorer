@@ -49,6 +49,8 @@ export type Score = {
     player_name: string;
     score: number;
     is_burst: boolean;
+    /** Tournament day the score was recorded on. */
+    day: number | null;
     created_at: string | null;
 };
 
@@ -150,5 +152,7 @@ export type AuditLog = {
     changes: AuditLogChange;
     /** The player's current team (dashboard activity only). */
     team?: TeamSummary | null;
+    /** Tournament day the change was made on (audit log page only). */
+    day?: number | null;
     created_at: string | null;
 };

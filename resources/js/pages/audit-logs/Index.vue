@@ -8,17 +8,21 @@ import InputIcon from 'primevue/inputicon';
 import InputText from 'primevue/inputtext';
 import Select from 'primevue/select';
 import { computed } from 'vue';
+import DaySwitcher from '@/components/DaySwitcher.vue';
 import FinishBadge from '@/components/FinishBadge.vue';
 import PageHeader from '@/components/PageHeader.vue';
 import { Skeleton } from '@/components/ui/skeleton';
 import { skeletonRows, useServerQuery } from '@/composables/useServerQuery';
 import { describeChange, formatDateTime, timeAgo } from '@/lib/activity';
 import { index as auditLogs } from '@/routes/audit-logs';
-import type { AuditLog, Paginated } from '@/types/scoring';
+import type { AuditLog, Paginated, TournamentDayOption } from '@/types/scoring';
 
 const props = defineProps<{
     logs: Paginated<AuditLog>;
+    /** Tournament days that have scores. */
+    days: TournamentDayOption[];
     filters: {
+        day: number | null;
         search: string;
         action: string | null;
         per_page: number;
@@ -41,13 +45,19 @@ const actionOptions = [
 const { filters, loading, apply, debouncedApply } = useServerQuery(
     auditLogs().url,
     {
+        day: props.filters.day,
         search: props.filters.search,
         action: props.filters.action,
         per_page: props.filters.per_page,
         page: props.logs.current_page,
     },
-    { only: ['logs', 'filters'] },
+    { only: ['logs', 'filters', 'days'] },
 );
+
+function selectDay(day: number | null): void {
+    filters.day = day;
+    onFilterChange();
+}
 
 const rows = computed(() =>
     loading.value
@@ -81,6 +91,14 @@ const hasFilters = computed(() => !!filters.search || !!filters.action);
         <PageHeader
             title="Audit log"
             description="Every score that was added or changed, and who did it."
+        />
+
+        <DaySwitcher
+            :days="days"
+            :selected="filters.day"
+            :disabled="loading"
+            all-label="All days"
+            @select="selectDay"
         />
 
         <div class="flex flex-col gap-3 sm:flex-row sm:items-center">
@@ -155,15 +173,19 @@ const hasFilters = computed(() => !!filters.search || !!filters.action);
                     }}</span>
                 </template>
             </Column>
-            <Column header="When" :style="{ width: '9rem' }">
+            <Column header="When" :style="{ width: '11rem' }">
                 <template #body="{ data }">
                     <Skeleton v-if="loading" class="h-4 w-16" />
-                    <time
-                        v-else
-                        class="whitespace-nowrap text-muted-foreground"
-                        :datetime="data.created_at ?? undefined"
-                        :title="formatDateTime(data.created_at)"
-                        >{{ timeAgo(data.created_at) }}</time
+                    <span v-else class="whitespace-nowrap text-muted-foreground"
+                        ><span
+                            v-if="data.day"
+                            class="mr-2 font-medium text-foreground"
+                            >Day {{ data.day }}</span
+                        ><time
+                            :datetime="data.created_at ?? undefined"
+                            :title="formatDateTime(data.created_at)"
+                            >{{ timeAgo(data.created_at) }}</time
+                        ></span
                     >
                 </template>
             </Column>

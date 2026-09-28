@@ -4,8 +4,42 @@ use App\Models\ActionLog;
 use App\Models\Player;
 use App\Models\PlayerScore;
 use App\Models\User;
+use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Carbon;
 
-uses(\Illuminate\Foundation\Testing\RefreshDatabase::class);
+uses(RefreshDatabase::class);
+
+test('scores can be separated by tournament day', function () {
+    config(['app.tournament_timezone' => 'Asia/Manila']);
+    $this->actingAs(User::factory()->create());
+    $player = Player::factory()->create();
+
+    // Oct 3 and Oct 4 in Manila; 17:30 UTC on Oct 3 is already Oct 4 there.
+    $this->travelTo(Carbon::parse('2026-10-03 03:00:00', 'UTC'));
+    PlayerScore::factory()->for($player)->count(2)->create();
+    $this->travelTo(Carbon::parse('2026-10-03 17:30:00', 'UTC'));
+    PlayerScore::factory()->for($player)->count(3)->create();
+
+    $this->get(route('scores.index', ['day' => 2]))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->component('scores/Index')
+            ->where('filters.day', 2)
+            ->has('days', 2)
+            ->where('days.1.label', 'Day 2')
+            ->has('scores.data', 3)
+            ->where('scores.data.0.day', 2));
+
+    $this->get(route('scores.index'))
+        ->assertInertia(fn ($page) => $page
+            ->where('filters.day', null)
+            ->has('scores.data', 5)
+            ->where('scores.data.4.day', 1));
+
+    // Unknown days show every score.
+    $this->get(route('scores.index', ['day' => 7]))
+        ->assertInertia(fn ($page) => $page->where('filters.day', null)->has('scores.data', 5));
+});
 
 test('guests cannot store scores', function () {
     $player = Player::factory()->create();

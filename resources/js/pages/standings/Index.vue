@@ -348,7 +348,6 @@ function onDialogHide(): void {
                     Select a player to see their stats.
                 </div>
                 <DaySwitcher
-                    v-if="days.length"
                     class="mt-4"
                     :days="days"
                     :selected="day"

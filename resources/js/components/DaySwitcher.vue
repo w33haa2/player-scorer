@@ -3,17 +3,27 @@ import { computed } from 'vue';
 import { formatDayDate } from '@/lib/tournamentDays';
 import type { TournamentDayOption } from '@/types/scoring';
 
-const props = defineProps<{
-    days: TournamentDayOption[];
-    /** Selected day number, or null for the whole tournament. */
-    selected: number | null;
-    disabled?: boolean;
-}>();
+const props = withDefaults(
+    defineProps<{
+        days: TournamentDayOption[];
+        /** Selected day number, or null for the whole tournament. */
+        selected: number | null;
+        disabled?: boolean;
+        /** Label for the whole-tournament tab. */
+        allLabel?: string;
+    }>(),
+    { allLabel: 'Overall' },
+);
 
 const emit = defineEmits<{ select: [day: number | null] }>();
 
 const options = computed(() => [
-    { number: null, label: 'Overall', title: 'Whole tournament', live: false },
+    {
+        number: null,
+        label: props.allLabel,
+        title: 'Whole tournament',
+        live: false,
+    },
     ...props.days.map((day) => ({
         number: day.number as number | null,
         label: day.label,
@@ -88,6 +98,9 @@ function select(day: number | null): void {
                 Latest: {{ latestDay.label }} ·
                 {{ formatDayDate(latestDay.date) }}
             </template>
+        </p>
+        <p v-else class="text-xs text-muted-foreground">
+            Day 1 starts with the first recorded battle.
         </p>
     </div>
 </template>

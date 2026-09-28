@@ -6,6 +6,8 @@ use App\Http\Requests\StoreScoreRequest;
 use App\Http\Requests\UpdateScoreRequest;
 use App\Models\Player;
 use App\Models\PlayerScore;
+use App\Services\TournamentDay;
+use App\Services\TournamentDays;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -16,9 +18,12 @@ class ScoreController extends Controller
 {
     /**
      * Display all recorded scores.
+     *
+     * `?day={n}` shows only the scores recorded on that tournament day.
      */
-    public function index(Request $request): Response
+    public function index(Request $request, TournamentDays $tournamentDays): Response
     {
+        $day = $tournamentDays->find($request->integer('day'));
         $search = trim((string) $request->string('search'));
         $direction = $request->string('direction')->lower()->toString() === 'asc' ? 'asc' : 'desc';
         $perPage = (int) min(max($request->integer('per_page', 15), 5), 100);
@@ -34,6 +39,7 @@ class ScoreController extends Controller
             ->with('player:id,blader_name')
             ->join('players', 'players.id', '=', 'player_scores.player_id')
             ->select('player_scores.*')
+            ->onDay($day)
             ->when($search !== '', fn ($q) => $q->where(fn ($inner) => $inner
                 ->whereLike('players.blader_name', "%{$search}%", caseSensitive: false)
                 ->orWhereLike('players.name', "%{$search}%", caseSensitive: false)))
@@ -64,12 +70,15 @@ class ScoreController extends Controller
                 'player_name' => $score->player->blader_name,
                 'score' => $score->score,
                 'is_burst' => $score->is_burst,
+                'day' => $score->created_at ? $tournamentDays->dayOf($score->created_at)?->number : null,
                 'created_at' => $score->created_at?->toIso8601String(),
             ]);
 
         return Inertia::render('scores/Index', [
             'scores' => $scores,
+            'days' => fn (): array => array_map(fn (TournamentDay $tournamentDay): array => $tournamentDay->toArray(), $tournamentDays->all()),
             'filters' => [
+                'day' => $day?->number,
                 'search' => $search,
                 'score' => in_array($scoreFilter, [1, 2, 3], true) ? $scoreFilter : null,
                 'is_burst' => $burstFilter !== '' ? $burstFilter : null,

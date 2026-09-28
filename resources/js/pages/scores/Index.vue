@@ -12,6 +12,7 @@ import InputIcon from 'primevue/inputicon';
 import InputText from 'primevue/inputtext';
 import Select from 'primevue/select';
 import { computed, ref } from 'vue';
+import DaySwitcher from '@/components/DaySwitcher.vue';
 import FinishBadge from '@/components/FinishBadge.vue';
 import PageHeader from '@/components/PageHeader.vue';
 import ScoreEditDialog from '@/components/scoring/ScoreEditDialog.vue';
@@ -20,11 +21,14 @@ import { skeletonRows, useServerQuery } from '@/composables/useServerQuery';
 import { formatDateTime } from '@/lib/activity';
 import type { FinishKey } from '@/lib/finishTypes';
 import { index as scoresIndex } from '@/routes/scores';
-import type { Paginated, Score } from '@/types/scoring';
+import type { Paginated, Score, TournamentDayOption } from '@/types/scoring';
 
 const props = defineProps<{
     scores: Paginated<Score>;
+    /** Tournament days that have scores. */
+    days: TournamentDayOption[];
     filters: {
+        day: number | null;
         search: string;
         score: number | null;
         is_burst: string | null;
@@ -43,6 +47,7 @@ defineOptions({
 const { filters, loading, apply, debouncedApply } = useServerQuery(
     scoresIndex().url,
     {
+        day: props.filters.day,
         search: props.filters.search,
         score: props.filters.score,
         is_burst: props.filters.is_burst,
@@ -51,8 +56,14 @@ const { filters, loading, apply, debouncedApply } = useServerQuery(
         per_page: props.filters.per_page,
         page: props.scores.current_page,
     },
-    { only: ['scores', 'filters'] },
+    { only: ['scores', 'filters', 'days'] },
 );
+
+function selectDay(day: number | null): void {
+    filters.day = day;
+    filters.page = 1;
+    apply();
+}
 
 const rows = computed(() =>
     loading.value
@@ -145,6 +156,14 @@ function openEdit(score: Score): void {
             description="Every recorded battle. Use this page to fix a mistake. Scores can't be deleted."
         />
 
+        <DaySwitcher
+            :days="days"
+            :selected="filters.day"
+            :disabled="loading"
+            all-label="All days"
+            @select="selectDay"
+        />
+
         <div class="flex flex-col gap-3 sm:flex-row sm:items-center">
             <IconField class="w-full sm:max-w-xs">
                 <InputIcon class="pi pi-search" />
@@ -215,9 +234,13 @@ function openEdit(score: Score): void {
             <Column field="created_at" header="Recorded" sortable>
                 <template #body="{ data }">
                     <Skeleton v-if="loading" class="h-4 w-28" />
-                    <span v-else class="text-muted-foreground">{{
-                        formatDateTime(data.created_at)
-                    }}</span>
+                    <span v-else class="text-muted-foreground"
+                        ><span
+                            v-if="data.day"
+                            class="mr-2 font-medium text-foreground"
+                            >Day {{ data.day }}</span
+                        >{{ formatDateTime(data.created_at) }}</span
+                    >
                 </template>
             </Column>
             <Column :style="{ width: '6rem' }">
