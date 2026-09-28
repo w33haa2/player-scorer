@@ -26,6 +26,15 @@ export type Player = {
     scores_total: number;
 };
 
+/** A tournament day, derived from when scores were recorded. */
+export type TournamentDayOption = {
+    number: number;
+    label: string;
+    /** Local calendar date (YYYY-MM-DD) in the tournament timezone. */
+    date: string;
+    is_today: boolean;
+};
+
 /** The one-time DBBL roster seed (Settings > Profile). */
 export type PlayerDataStatus = {
     teams: number;
@@ -101,6 +110,13 @@ export type PlayerProfile = {
         burst: number;
         extreme: number;
     };
+    days: {
+        number: number;
+        label: string;
+        date: string;
+        points: number;
+        battles: number;
+    }[];
     placements: PlayerPlacement[];
     recent: {
         id: number;

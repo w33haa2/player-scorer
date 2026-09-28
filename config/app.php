@@ -69,6 +69,18 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Tournament Timezone
+    |--------------------------------------------------------------------------
+    |
+    | Scores are stored in UTC, but tournament days ("Day 1", "Day 2") follow
+    | the local calendar where the event is played.
+    |
+    */
+
+    'tournament_timezone' => env('TOURNAMENT_TIMEZONE', 'Asia/Manila'),
+
+    /*
+    |--------------------------------------------------------------------------
     | Application Locale Configuration
     |--------------------------------------------------------------------------
     |

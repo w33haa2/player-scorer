@@ -7,6 +7,7 @@ import TeamLogo from '@/components/TeamLogo.vue';
 import { Skeleton } from '@/components/ui/skeleton';
 import { formatDateTime, timeAgo } from '@/lib/activity';
 import { finishTypes } from '@/lib/finishTypes';
+import { formatDayDate } from '@/lib/tournamentDays';
 import type { PlayerProfile, TeamSummary } from '@/types/scoring';
 
 const props = defineProps<{
@@ -194,6 +195,37 @@ function ordinal(position: number): string {
                     </dd>
                 </div>
             </dl>
+
+            <!-- Points per tournament day: tells tied totals apart. -->
+            <section v-if="player.days.length">
+                <h3 class="mb-3 text-sm font-medium">By day</h3>
+                <dl class="grid grid-cols-2 gap-3 sm:grid-cols-4">
+                    <div
+                        v-for="day in player.days"
+                        :key="day.number"
+                        class="rounded-lg border border-border px-3 py-3"
+                    >
+                        <dt class="text-xs text-muted-foreground">
+                            {{ day.label }}
+                            <span class="text-muted-foreground/70"
+                                >· {{ formatDayDate(day.date) }}</span
+                            >
+                        </dt>
+                        <dd
+                            class="mt-1 flex items-baseline gap-1 font-mono text-xl font-medium"
+                        >
+                            {{ day.points }}
+                            <span
+                                class="text-xs font-normal text-muted-foreground"
+                                >pts · {{ day.battles }}
+                                {{
+                                    day.battles === 1 ? 'battle' : 'battles'
+                                }}</span
+                            >
+                        </dd>
+                    </div>
+                </dl>
+            </section>
 
             <!-- Finish breakdown -->
             <section>

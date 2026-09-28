@@ -3,9 +3,12 @@
 namespace App\Models;
 
 use App\Observers\PlayerScoreObserver;
+use App\Services\TournamentDay;
 use Database\Factories\PlayerScoreFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\ObservedBy;
+use Illuminate\Database\Eloquent\Attributes\Scope;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -35,6 +38,20 @@ class PlayerScore extends Model
     public function player(): BelongsTo
     {
         return $this->belongsTo(Player::class);
+    }
+
+    /**
+     * Only scores recorded on the given tournament day (all scores when null).
+     *
+     * @param  Builder<PlayerScore>  $query
+     */
+    #[Scope]
+    protected function onDay(Builder $query, ?TournamentDay $day): void
+    {
+        if ($day !== null) {
+            $query->where($this->qualifyColumn('created_at'), '>=', $day->startsAt())
+                ->where($this->qualifyColumn('created_at'), '<', $day->endsAt());
+        }
     }
 
     /**

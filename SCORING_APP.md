@@ -199,6 +199,15 @@ Players are shown everywhere by their **blader name**, with their team logo (hov
 full team name) and the team acronym as a coloured tag, e.g. **DNV** Ferrari_430. The public
 standings never expose real names. A player's current team is their latest `team_members` row.
 
+### Tournament days
+
+Standings and the dashboard can aggregate the **whole tournament** or a single **day**
+(`?day=1`, `?day=2`). Days come from each score's `created_at`, read in the tournament
+timezone (`TOURNAMENT_TIMEZONE`, default `Asia/Manila`): Day 1 is the first local date with a
+recorded score, Day 2 the next, and so on (`App\Services\TournamentDays`). The latest day is
+what's being aggregated, shown as **Live** while it's today. Editing a score never moves it to
+another day. Player cards always show the whole tournament, split per day.
+
 ### Score rules
 
 - `score` must be an integer between **1 and 3** (never 0).

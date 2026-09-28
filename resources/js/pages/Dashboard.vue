@@ -2,18 +2,25 @@
 import { Deferred, Head, Link, router } from '@inertiajs/vue3';
 import Button from 'primevue/button';
 import { computed, ref, watch } from 'vue';
+import type { Ref } from 'vue';
 import BladerName from '@/components/BladerName.vue';
 import ActivitySkeleton from '@/components/dashboard/ActivitySkeleton.vue';
 import StatsSkeleton from '@/components/dashboard/StatsSkeleton.vue';
+import DaySwitcher from '@/components/DaySwitcher.vue';
 import FinishBadge from '@/components/FinishBadge.vue';
 import PageHeader from '@/components/PageHeader.vue';
 import TeamLogo from '@/components/TeamLogo.vue';
 import TitleRaceSkeleton from '@/components/TitleRaceSkeleton.vue';
 import { describeChangeParts, formatDateTime, timeAgo } from '@/lib/activity';
+import { dayQuery, findDay } from '@/lib/tournamentDays';
 import { dashboard } from '@/routes';
 import { index as auditLogs } from '@/routes/audit-logs';
 import { index as players } from '@/routes/players';
-import type { AuditLog, AwardLeaderboard } from '@/types/scoring';
+import type {
+    AuditLog,
+    AwardLeaderboard,
+    TournamentDayOption,
+} from '@/types/scoring';
 
 // Deferred props: undefined until the follow-up request resolves them.
 const props = defineProps<{
@@ -24,7 +31,13 @@ const props = defineProps<{
     };
     leaderboards?: AwardLeaderboard[];
     recentActivity?: AuditLog[];
+    /** Tournament days that have scores. */
+    days: TournamentDayOption[];
+    /** The day being aggregated, or null for the whole tournament. */
+    day: number | null;
 }>();
+
+const selectedDay = computed(() => findDay(props.days, props.day));
 
 defineOptions({
     layout: {
@@ -32,12 +45,17 @@ defineOptions({
     },
 });
 
-const DEFERRED_KEYS = ['stats', 'leaderboards', 'recentActivity'];
+// Totals and the title race follow the selected day; activity never does.
+const DAY_KEYS = ['stats', 'leaderboards', 'days', 'day'];
+const DEFERRED_KEYS = [...DAY_KEYS, 'recentActivity'];
 
 // Keep skeletons up for a moment so a fast refresh doesn't flicker.
 const MIN_SKELETON_MS = 350;
 
+// Refresh reloads every section; a day switch only the day-scoped ones.
 const refreshing = ref(false);
+const switchingDay = ref(false);
+const loadingDayData = computed(() => refreshing.value || switchingDay.value);
 const updatedAt = ref<Date | null>(null);
 
 // Stamp whenever fresh data lands (initial deferred load and refreshes).
@@ -67,17 +85,13 @@ const updatedLabel = computed(() =>
         : null,
 );
 
-function refresh(): void {
-    if (refreshing.value) {
-        return;
-    }
-
+/** Visit callbacks that raise a loading flag for at least MIN_SKELETON_MS. */
+function whileLoading(flag: Ref<boolean>) {
     const startedAt = Date.now();
 
-    router.reload({
-        only: DEFERRED_KEYS,
+    return {
         onStart: () => {
-            refreshing.value = true;
+            flag.value = true;
         },
         onFinish: () => {
             const remaining = Math.max(
@@ -86,9 +100,30 @@ function refresh(): void {
             );
 
             setTimeout(() => {
-                refreshing.value = false;
+                flag.value = false;
             }, remaining);
         },
+    };
+}
+
+function refresh(): void {
+    if (loadingDayData.value) {
+        return;
+    }
+
+    router.reload({ only: DEFERRED_KEYS, ...whileLoading(refreshing) });
+}
+
+function selectDay(day: number | null): void {
+    if (loadingDayData.value) {
+        return;
+    }
+
+    router.get(dashboard().url, dayQuery(day), {
+        only: DAY_KEYS,
+        preserveState: true,
+        preserveScroll: true,
+        ...whileLoading(switchingDay),
     });
 }
 </script>
@@ -123,13 +158,21 @@ function refresh(): void {
             </template>
         </PageHeader>
 
+        <DaySwitcher
+            v-if="days.length"
+            :days="days"
+            :selected="day"
+            :disabled="loadingDayData"
+            @select="selectDay"
+        />
+
         <!-- League totals -->
         <Deferred data="stats">
             <template #fallback>
                 <StatsSkeleton />
             </template>
             <template #default>
-                <StatsSkeleton v-if="refreshing" />
+                <StatsSkeleton v-if="loadingDayData" />
                 <dl
                     v-else-if="stats"
                     class="grid grid-cols-3 divide-x divide-border rounded-lg border border-border"
@@ -142,7 +185,11 @@ function refresh(): void {
                     </div>
                     <div class="px-4 py-3 sm:px-5 sm:py-4">
                         <dt class="text-xs text-muted-foreground">
-                            Battles recorded
+                            {{
+                                selectedDay
+                                    ? `${selectedDay.label} battles`
+                                    : 'Battles recorded'
+                            }}
                         </dt>
                         <dd class="mt-1 font-mono text-2xl font-medium">
                             {{ stats.battles }}
@@ -150,7 +197,11 @@ function refresh(): void {
                     </div>
                     <div class="px-4 py-3 sm:px-5 sm:py-4">
                         <dt class="text-xs text-muted-foreground">
-                            Points awarded
+                            {{
+                                selectedDay
+                                    ? `${selectedDay.label} points`
+                                    : 'Points awarded'
+                            }}
                         </dt>
                         <dd class="mt-1 font-mono text-2xl font-medium">
                             {{ stats.points }}
@@ -163,13 +214,18 @@ function refresh(): void {
         <div class="grid gap-8 xl:grid-cols-[minmax(0,1fr)_20rem]">
             <!-- Title race -->
             <section>
-                <h2 class="mb-3 text-sm font-medium">Title race</h2>
+                <h2 class="mb-3 text-sm font-medium">
+                    Title race
+                    <span v-if="selectedDay" class="text-muted-foreground"
+                        >· {{ selectedDay.label }}</span
+                    >
+                </h2>
                 <Deferred data="leaderboards">
                     <template #fallback>
                         <TitleRaceSkeleton />
                     </template>
                     <template #default>
-                        <TitleRaceSkeleton v-if="refreshing" />
+                        <TitleRaceSkeleton v-if="loadingDayData" />
                         <div
                             v-else-if="leaderboards"
                             class="grid gap-3 md:grid-cols-2"

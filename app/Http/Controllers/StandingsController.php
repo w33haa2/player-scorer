@@ -6,6 +6,8 @@ use App\Models\Player;
 use App\Models\PlayerScore;
 use App\Services\Seo;
 use App\Services\StandingsService;
+use App\Services\TournamentDay;
+use App\Services\TournamentDays;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -24,16 +26,22 @@ class StandingsController extends Controller
      * The standings data is deferred so the page paints with skeletons first.
      * `selectedPlayer` and `seo` stay in the initial response: deep links open
      * straight away and link previews get real metadata.
+     *
+     * `?day={n}` aggregates a single tournament day; anything else (or an
+     * unknown day) shows the whole tournament. The player card is always
+     * whole-tournament, with a per-day split.
      */
-    public function index(Request $request, StandingsService $standings): Response
+    public function index(Request $request, StandingsService $standings, TournamentDays $tournamentDays): Response
     {
         $playerId = $request->integer('player');
+        $day = $tournamentDays->find($request->integer('day'));
+        $scoped = $standings->forDay($day);
 
-        $awards = fn (): array => once(fn () => $standings->leaderboards(3));
+        $awards = fn (): array => once(fn () => $scoped->leaderboards(3));
 
         $stats = fn (): array => once(fn () => [
             'players' => Player::count(),
-            'scores' => PlayerScore::count(),
+            'scores' => PlayerScore::query()->onDay($day)->count(),
         ]);
 
         $profile = fn (): ?array => once(function () use ($playerId, $standings): ?array {
@@ -44,11 +52,21 @@ class StandingsController extends Controller
 
         return Inertia::render('standings/Index', [
             'awards' => Inertia::defer($awards),
-            'leaderboard' => Inertia::defer(fn (): array => $standings->playerLeaderboard()),
+            'leaderboard' => Inertia::defer(fn (): array => $scoped->playerLeaderboard()),
             'stats' => Inertia::defer($stats),
+            'days' => fn (): array => array_map(fn (TournamentDay $tournamentDay): array => $tournamentDay->toArray(), $tournamentDays->all()),
+            'day' => $day?->number,
             'selectedPlayer' => $profile,
-            'seo' => fn (): array => $this->seo($awards(), $stats(), $profile()),
+            'seo' => fn (): array => $this->seo($awards(), $stats(), $profile(), $day),
         ]);
+    }
+
+    /**
+     * Page title for the whole tournament or a single day.
+     */
+    public static function title(?TournamentDay $day): string
+    {
+        return $day ? "{$day->label()} standings & title race" : self::PAGE_TITLE;
     }
 
     /**
@@ -59,7 +77,7 @@ class StandingsController extends Controller
      * @param  array{player_id: int, player_name: string, rank: int|null, total_players: int, battles: int, points: int, placements: list<array{name: string, position: int}>}|null  $profile
      * @return array<string, string|null>
      */
-    private function seo(array $awards, array $stats, ?array $profile): array
+    private function seo(array $awards, array $stats, ?array $profile, ?TournamentDay $day): array
     {
         if ($profile !== null) {
             return Seo::page(
@@ -74,8 +92,21 @@ class StandingsController extends Controller
         $leader = collect($awards)->firstWhere('key', 'finals_mvp')['leaders'][0] ?? null;
 
         $description = $leader
-            ? "{$leader['player_name']} leads Finals MVP with {$leader['value']} points. "
+            ? "{$leader['player_name']} leads Finals MVP with {$leader['value']} points".($day ? " on {$day->label()}" : '').'. '
             : '';
+
+        if ($day !== null) {
+            $description .= "DBBL {$day->label()} leaderboard and title race: {$stats['scores']} "
+                .str('battle')->plural($stats['scores']).' recorded that day.';
+
+            // Day views are filtered copies of /standings; keep them out of search.
+            return Seo::page(
+                title: self::title($day),
+                description: $description,
+                path: 'standings?day='.$day->number,
+                index: false,
+            );
+        }
 
         $description .= "Live DBBL leaderboard and title race: {$stats['players']} "
             .str('player')->plural($stats['players']).", {$stats['scores']} "

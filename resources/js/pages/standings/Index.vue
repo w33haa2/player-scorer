@@ -3,17 +3,20 @@ import { Head, router } from '@inertiajs/vue3';
 import Button from 'primevue/button';
 import { computed, ref, useTemplateRef, watch } from 'vue';
 import BladerName from '@/components/BladerName.vue';
+import DaySwitcher from '@/components/DaySwitcher.vue';
 import PlayerStatsDialog from '@/components/standings/PlayerStatsDialog.vue';
 import TeamLogo from '@/components/TeamLogo.vue';
 import TitleRaceSkeleton from '@/components/TitleRaceSkeleton.vue';
 import { Skeleton } from '@/components/ui/skeleton';
 import { finishTypes } from '@/lib/finishTypes';
+import { dayQuery, findDay } from '@/lib/tournamentDays';
 import { index as standings } from '@/routes/standings';
 import type {
     AwardLeaderboard,
     LeaderboardRow,
     PlayerProfile,
     TeamSummary,
+    TournamentDayOption,
 } from '@/types/scoring';
 
 defineOptions({ inheritAttrs: false });
@@ -26,14 +29,21 @@ const props = defineProps<{
         players: number;
         scores: number;
     };
+    /** Tournament days that have scores. */
+    days: TournamentDayOption[];
+    /** The day being aggregated, or null for the whole tournament. */
+    day: number | null;
     selectedPlayer: PlayerProfile | null;
 }>();
 
+const selectedDay = computed(() => findDay(props.days, props.day));
+
 /* ------------------------------------------------------------------ */
-/* Refresh                                                             */
+/* Refresh and day switching                                           */
 /* ------------------------------------------------------------------ */
 
-const DEFERRED_KEYS = ['awards', 'leaderboard', 'stats'];
+// `days` is included so a new tournament day shows up on refresh.
+const RELOAD_KEYS = ['awards', 'leaderboard', 'stats', 'days', 'day'];
 
 // Keep skeletons up for a moment so a fast refresh doesn't flicker.
 const MIN_SKELETON_MS = 350;
@@ -64,15 +74,18 @@ const updatedLabel = computed(() =>
         : null,
 );
 
-function refresh(): void {
+/**
+ * Reload the standings with skeletons: the current view (Refresh), or
+ * another day when one is given.
+ */
+function reloadStandings(day?: number | null): void {
     if (refreshing.value) {
         return;
     }
 
     const startedAt = Date.now();
-
-    router.reload({
-        only: DEFERRED_KEYS,
+    const options = {
+        only: RELOAD_KEYS,
         onStart: () => {
             refreshing.value = true;
         },
@@ -86,7 +99,25 @@ function refresh(): void {
                 refreshing.value = false;
             }, remaining);
         },
-    });
+    };
+
+    if (day === undefined) {
+        router.reload(options);
+    } else {
+        router.get(standings().url, dayQuery(day), {
+            ...options,
+            preserveState: true,
+            preserveScroll: true,
+        });
+    }
+}
+
+function refresh(): void {
+    reloadStandings();
+}
+
+function selectDay(day: number | null): void {
+    reloadStandings(day);
 }
 
 function plural(count: number, word: string): string {
@@ -240,11 +271,15 @@ const isLoadingPlayer = computed(
 );
 
 // Matches the server-rendered titles (StandingsController) for each state.
-const pageTitle = computed(() =>
-    dialogVisible.value && requestedName.value
-        ? `${requestedName.value} player stats`
-        : 'Standings & title race',
-);
+const pageTitle = computed(() => {
+    if (dialogVisible.value && requestedName.value) {
+        return `${requestedName.value} player stats`;
+    }
+
+    return selectedDay.value
+        ? `${selectedDay.value.label} standings & title race`
+        : 'Standings & title race';
+});
 
 function openPlayer(player: {
     player_id: number;
@@ -259,7 +294,7 @@ function openPlayer(player: {
 
     router.get(
         standings().url,
-        { player: player.player_id },
+        { player: player.player_id, ...dayQuery(props.day) },
         {
             only: ['selectedPlayer'],
             preserveState: true,
@@ -275,16 +310,12 @@ function openPlayer(player: {
 function onDialogHide(): void {
     requestedId.value = null;
 
-    router.get(
-        standings().url,
-        {},
-        {
-            only: ['selectedPlayer'],
-            preserveState: true,
-            preserveScroll: true,
-            replace: true,
-        },
-    );
+    router.get(standings().url, dayQuery(props.day), {
+        only: ['selectedPlayer'],
+        preserveState: true,
+        preserveScroll: true,
+        replace: true,
+    });
 }
 </script>
 
@@ -299,7 +330,12 @@ function onDialogHide(): void {
                 <h1 class="text-3xl font-semibold tracking-tight">Standings</h1>
                 <!-- A div, not a <p>: the inline skeleton renders a <div>. -->
                 <div class="mt-2 max-w-lg text-sm text-muted-foreground">
-                    Season leaderboard ·
+                    {{
+                        selectedDay
+                            ? `${selectedDay.label} leaderboard`
+                            : 'Season leaderboard'
+                    }}
+                    ·
                     <template v-if="stats && !refreshing"
                         >{{ plural(stats.players, 'player') }},
                         {{ plural(stats.scores, 'battle') }}.</template
@@ -311,6 +347,14 @@ function onDialogHide(): void {
                     />
                     Select a player to see their stats.
                 </div>
+                <DaySwitcher
+                    v-if="days.length"
+                    class="mt-4"
+                    :days="days"
+                    :selected="day"
+                    :disabled="refreshing"
+                    @select="selectDay"
+                />
             </div>
             <div class="flex items-center gap-3">
                 <span
@@ -333,7 +377,12 @@ function onDialogHide(): void {
 
         <!-- Title race -->
         <section :aria-busy="refreshing || !awards">
-            <h2 class="mb-3 text-sm font-medium">Title race</h2>
+            <h2 class="mb-3 text-sm font-medium">
+                Title race
+                <span v-if="selectedDay" class="text-muted-foreground"
+                    >· {{ selectedDay.label }}</span
+                >
+            </h2>
             <TitleRaceSkeleton
                 v-if="refreshing || !awards"
                 class="lg:grid-cols-3"
@@ -395,7 +444,12 @@ function onDialogHide(): void {
         <!-- Leaderboard -->
         <section :aria-busy="refreshing || !leaderboard">
             <div class="mb-3 flex items-baseline justify-between gap-3">
-                <h2 class="text-sm font-medium">Leaderboard</h2>
+                <h2 class="text-sm font-medium">
+                    Leaderboard
+                    <span v-if="selectedDay" class="text-muted-foreground"
+                        >· {{ selectedDay.label }}</span
+                    >
+                </h2>
                 <p class="text-xs text-muted-foreground">
                     Sorted by
                     {{

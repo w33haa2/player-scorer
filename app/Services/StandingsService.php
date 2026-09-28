@@ -6,17 +6,37 @@ use App\Models\Player;
 use App\Models\PlayerScore;
 use App\Models\TeamMember;
 use Illuminate\Database\Query\Builder;
+use Illuminate\Database\Query\JoinClause;
 use Illuminate\Support\Facades\DB;
 
 /**
  * Standings are public, so players are identified by their blader name
  * (`player_name` below) and team, never by their real name.
  *
+ * By default everything aggregates the whole tournament; `forDay()` returns
+ * a copy that only counts scores recorded on one tournament day.
+ *
  * @phpstan-type TeamSummary array{name: string, acronym: string|null, logo_url: string|null}
  * @phpstan-type Leader array{player_id: int, player_name: string, value: int, team: TeamSummary|null}
  */
 class StandingsService
 {
+    /** The day being aggregated, or null for the whole tournament. */
+    protected ?TournamentDay $day = null;
+
+    public function __construct(protected TournamentDays $tournamentDays) {}
+
+    /**
+     * A copy of the service that only counts scores from the given day.
+     */
+    public function forDay(?TournamentDay $day): static
+    {
+        $scoped = clone $this;
+        $scoped->day = $day;
+
+        return $scoped;
+    }
+
     /**
      * Compute the current holder of each award.
      *
@@ -110,8 +130,13 @@ class StandingsService
     {
         // `CASE WHEN is_burst` uses the column itself as the condition, which
         // behaves the same on MySQL, PostgreSQL and SQLite (no bool binding).
+        // The day filter lives in the join, so players without battles that
+        // day are still listed (with zeros).
         $rows = DB::table('players')
-            ->leftJoin('player_scores', 'player_scores.player_id', '=', 'players.id')
+            ->leftJoin('player_scores', function (JoinClause $join): void {
+                $join->on('player_scores.player_id', '=', 'players.id');
+                $this->withinDay($join);
+            })
             ->select('players.id as player_id', 'players.blader_name as player_name')
             ->selectRaw('COUNT(player_scores.id) as battles')
             ->selectRaw('COALESCE(SUM(player_scores.score), 0) as points')
@@ -172,6 +197,7 @@ class StandingsService
      *     points: int,
      *     average: float,
      *     breakdown: array{spin: int, over: int, burst: int, extreme: int},
+     *     days: list<array{number: int, label: string, date: string, points: int, battles: int}>,
      *     placements: list<array{key: string, name: string, position: int, value: int, metric: string}>,
      *     recent: list<array{id: int, score: int, is_burst: bool, created_at: string|null}>
      * }
@@ -231,9 +257,56 @@ class StandingsService
                 'burst' => (int) ($row['burst'] ?? 0),
                 'extreme' => (int) ($row['extreme'] ?? 0),
             ],
+            'days' => $this->dayTotals($player),
             'placements' => $placements,
             'recent' => $recent,
         ];
+    }
+
+    /**
+     * A player's points and battles on each tournament day (zeros included),
+     * so tied totals can be compared day by day.
+     *
+     * @return list<array{number: int, label: string, date: string, points: int, battles: int}>
+     */
+    protected function dayTotals(Player $player): array
+    {
+        $totals = [];
+
+        foreach ($player->scores()->get(['score', 'created_at']) as $score) {
+            $day = $score->created_at ? $this->tournamentDays->dayOf($score->created_at) : null;
+
+            if ($day !== null) {
+                $totals[$day->number]['points'] = ($totals[$day->number]['points'] ?? 0) + $score->score;
+                $totals[$day->number]['battles'] = ($totals[$day->number]['battles'] ?? 0) + 1;
+            }
+        }
+
+        return array_map(fn (TournamentDay $day): array => [
+            'number' => $day->number,
+            'label' => $day->label(),
+            'date' => $day->date->toDateString(),
+            'points' => $totals[$day->number]['points'] ?? 0,
+            'battles' => $totals[$day->number]['battles'] ?? 0,
+        ], $this->tournamentDays->all());
+    }
+
+    /**
+     * Limit a query (or join) on `player_scores` to the selected day.
+     *
+     * @template TQuery of Builder
+     *
+     * @param  TQuery  $query
+     * @return TQuery
+     */
+    protected function withinDay(Builder $query): Builder
+    {
+        if ($this->day !== null) {
+            $query->where('player_scores.created_at', '>=', $this->day->startsAt())
+                ->where('player_scores.created_at', '<', $this->day->endsAt());
+        }
+
+        return $query;
     }
 
     /**
@@ -266,10 +339,9 @@ class StandingsService
             ->groupBy('players.id', 'players.blader_name')
             ->orderByDesc('value')
             ->orderBy('players.id')
-            ->limit($limit)
-            ->get();
+            ->limit($limit);
 
-        return $this->normalize($rows->all());
+        return $this->normalize($this->withinDay($rows)->get()->all());
     }
 
     /**
@@ -290,10 +362,9 @@ class StandingsService
             ->orderByDesc('players.date_started')
             ->orderByDesc('value')
             ->orderBy('players.id')
-            ->limit($limit)
-            ->get();
+            ->limit($limit);
 
-        return $this->normalize($rows->all());
+        return $this->normalize($this->withinDay($rows)->get()->all());
     }
 
     /**
@@ -314,7 +385,7 @@ class StandingsService
 
         $filter($query);
 
-        return $this->normalize($query->get()->all());
+        return $this->normalize($this->withinDay($query)->get()->all());
     }
 
     /**
